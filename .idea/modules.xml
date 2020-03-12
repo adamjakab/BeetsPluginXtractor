@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/BeetsPluginEssentiaExtractor.iml" filepath="$PROJECT_DIR$/.idea/BeetsPluginEssentiaExtractor.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/BeetsPluginXtractor.iml" filepath="$PROJECT_DIR$/.idea/BeetsPluginXtractor.iml" />
     </modules>
   </component>
 </project>

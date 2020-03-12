@@ -8,7 +8,7 @@ asciify_paths: yes
 id3v23: yes
 
 pluginpath:
-    - ~/Documents/Projects/Python/BeetsPluginEssentiaExtractor/beetsplug
+    - ~/Documents/Projects/Python/BeetsPluginXtractor/beetsplug
 
 plugins:
     - info

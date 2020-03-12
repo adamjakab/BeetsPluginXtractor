@@ -1,6 +1,6 @@
 ---
 name: "\U0001F41B Bug report"
-about: Report a problem with essentiaextractor
+about: Report a problem with beets-xtractor
 
 ---
 
@@ -16,7 +16,7 @@ enough detail so that other people can reproduce the problem.
 Running your command in verbose (`-vv`) mode:
 
 ```sh
-$ beet -vv bpmanalyser (... paste here the rest...)
+$ beet -vv xtractor (... paste here the rest...)
 ```
 
 Led to this problem:
@@ -39,7 +39,7 @@ My configuration (output of `beet config`) is:
 (paste here)
 ```
 
-My plugin version (output of `beet essentiaextractor -v`) is:
+My plugin version (output of `beet xtractor -v`) is:
 
 ```text
 (paste here)

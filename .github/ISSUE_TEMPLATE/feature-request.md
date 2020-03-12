@@ -1,12 +1,12 @@
 ---
 name: "\U0001F680 Feature request"
-about: Suggest a new idea for essentiaextractor
+about: Suggest a new idea for beets-xtractor
 
 ---
 
 ### Use case
 
-I'm trying to use the essentiaextractor plugin to...
+I'm trying to use the beets-xtractor plugin to...
 
 
 ### Solution

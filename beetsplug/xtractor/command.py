@@ -3,10 +3,6 @@
 #  Author: Adam Jakab <adam at jakab dot pro>
 #  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
-#
-#  Author: Adam Jakab <adam at jakab dot pro>
-#  Created: 3/12/20, 11:42 PM
-#  License: See LICENSE.txt
 
 import logging
 from concurrent import futures
@@ -22,7 +18,7 @@ import beetsplug.xtractor.helper as bpmHelper
 log = logging.getLogger('beets.xtractor')
 
 
-class EssentiaExtractorCommand(Subcommand):
+class XtractorCommand(Subcommand):
     config = None
     lib = None
     query = None
@@ -94,7 +90,7 @@ class EssentiaExtractorCommand(Subcommand):
         )
 
         # Keep this at the end
-        super(EssentiaExtractorCommand, self).__init__(
+        super(XtractorCommand, self).__init__(
             parser=self.parser,
             name='xtractor',
             help=u'get more out of your songs...',

@@ -3,21 +3,16 @@
 #  Author: Adam Jakab <adam at jakab dot pro>
 #  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
-#
-#  Author: Adam Jakab <adam at jakab dot pro>
-#  Created: 3/12/20, 11:42 PM
-#  License: See LICENSE.txt
-
 
 from beets.plugins import BeetsPlugin
 from beets.util import cpu_count
 
-from beetsplug.xtractor.command import EssentiaExtractorCommand
+from beetsplug.xtractor.command import XtractorCommand
 
 
-class EssentiaExtractorPlugin(BeetsPlugin):
+class XtractorPlugin(BeetsPlugin):
     def __init__(self):
-        super(EssentiaExtractorPlugin, self).__init__()
+        super(XtractorPlugin, self).__init__()
         self.config.add({
             'auto': False,
             'dry-run': False,
@@ -28,4 +23,4 @@ class EssentiaExtractorPlugin(BeetsPlugin):
         })
 
     def commands(self):
-        return [EssentiaExtractorCommand(self.config)]
+        return [XtractorCommand(self.config)]
