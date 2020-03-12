@@ -17,10 +17,15 @@ The plugin can be installed via:
 $ pip install beets-essentiaextractor (*not yet!*)
 ```
 
+
 [Essentia](https://essentia.upf.edu/index.html)
+
 [SVM Models](https://essentia.upf.edu/svm_models/)
+
 [Essentia Licensing](https://essentia.upf.edu/licensing_information.html)
+
 [MTG Github - Music Technology Group](https://github.com/MTG)
+
 [Acousticbrainz Downloads](https://acousticbrainz.org/download)
 
 

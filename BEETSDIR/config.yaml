@@ -12,7 +12,7 @@ pluginpath:
 
 plugins:
     - info
-    - essentiaextractor
+    - xtractor
 
 format_item: "[format:$format][bpm:$bpm] ::: $path"
 
@@ -20,7 +20,7 @@ import:
     copy: yes
     autotag: no
 
-#essentiaextractor:
+#xtractor:
 #    auto: no
 #    dry-run: no
 #    write: yes

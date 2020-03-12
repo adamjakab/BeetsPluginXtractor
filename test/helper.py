@@ -1,6 +1,10 @@
 #  Copyright: Copyright (c) 2020., Adam Jakab
 #
 #  Author: Adam Jakab <adam at jakab dot pro>
+#  Created: 3/13/20, 12:17 AM
+#  License: See LICENSE.txt
+#
+#  Author: Adam Jakab <adam at jakab dot pro>
 #  Created: 3/12/20, 11:42 PM
 #  License: See LICENSE.txt
 #
@@ -34,12 +38,12 @@ from beets.util import (
 from beets.util.confit import Subview, Dumper
 from six import StringIO
 
-from beetsplug import essentiaextractor
+from beetsplug import xtractor
 
 logging.getLogger('beets').propagate = True
 
 # Values
-PLUGIN_NAME = 'essentiaextractor'
+PLUGIN_NAME = 'xtractor'
 PLUGIN_SHORT_DESCRIPTION = 'get more out of your music...'
 
 
@@ -121,7 +125,7 @@ class Assertions(object):
 class TestHelper(TestCase, Assertions):
     _test_config_dir_ = os.path.join(bytestring_path(os.path.dirname(__file__)), b'config')
     _test_fixture_dir = os.path.join(bytestring_path(os.path.dirname(__file__)), b'fixtures')
-    _test_target_dir = bytestring_path("/tmp/beets-essentiaextractor")
+    _test_target_dir = bytestring_path("/tmp/beets-xtractor")
 
     def setUp(self):
         """Setup required for running test. Must be called before running any tests.
@@ -133,7 +137,7 @@ class TestHelper(TestCase, Assertions):
 
     def reset_beets(self, config_file: bytes):
         self.teardown_beets()
-        plugins._classes = {essentiaextractor.EssentiaExtractorPlugin}
+        plugins._classes = {xtractor.EssentiaExtractorPlugin}
         self._setup_beets(config_file)
 
     def _setup_beets(self, config_file: bytes):

@@ -1,11 +1,11 @@
 #  Copyright: Copyright (c) 2020., Adam Jakab
 #
 #  Author: Adam Jakab <adam at jakab dot pro>
-#  Created: 3/12/20, 11:42 PM
+#  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
 #
 #  Author: Adam Jakab <adam at jakab dot pro>
-#  Created: 2/23/20, 10:53 PM
+#  Created: 3/12/20, 11:42 PM
 #  License: See LICENSE.txt
 
 import logging
@@ -16,10 +16,10 @@ from subprocess import Popen, PIPE
 from beets.library import Library as BeatsLibrary
 from beets.ui import Subcommand, decargs
 
-import beetsplug.essentiaextractor.helper as bpmHelper
+import beetsplug.xtractor.helper as bpmHelper
 
 # Module methods
-log = logging.getLogger('beets.essentiaextractor')
+log = logging.getLogger('beets.xtractor')
 
 
 class EssentiaExtractorCommand(Subcommand):
@@ -96,8 +96,9 @@ class EssentiaExtractorCommand(Subcommand):
         # Keep this at the end
         super(EssentiaExtractorCommand, self).__init__(
             parser=self.parser,
-            name='essentiaextractor',
-            help=u'get more out of your songs...'
+            name='xtractor',
+            help=u'get more out of your songs...',
+            aliases=["xt"]
         )
 
     def func(self, lib: BeatsLibrary, options, arguments):
@@ -118,9 +119,9 @@ class EssentiaExtractorCommand(Subcommand):
         self.analyse_songs()
 
     def show_version_information(self):
-        from beetsplug.essentiaextractor.version import __version__
+        from beetsplug.xtractor.version import __version__
         self._say(
-            "Bpm Analyser(beets-essentiaextractor) plugin for Beets: v{0}".format(__version__))
+            "Bpm Analyser(beets-xtractor) plugin for Beets: v{0}".format(__version__))
 
     def analyse_songs(self):
         # Setup the query

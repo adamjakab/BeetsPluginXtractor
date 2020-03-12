@@ -1,6 +1,10 @@
 #  Copyright: Copyright (c) 2020., Adam Jakab
 #
 #  Author: Adam Jakab <adam at jakab dot pro>
+#  Created: 3/13/20, 12:17 AM
+#  License: See LICENSE.txt
+#
+#  Author: Adam Jakab <adam at jakab dot pro>
 #  Created: 3/12/20, 11:42 PM
 #  License: See LICENSE.txt
 #
@@ -20,13 +24,13 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 main_ns = {}
-ver_path = convert_path('beetsplug/essentiaextractor/version.py')
+ver_path = convert_path('beetsplug/xtractor/version.py')
 with open(ver_path) as ver_file:
     exec(ver_file.read(), main_ns)
 
 # Setup
 setup(
-    name='beets-essentiaextractor',
+    name='beets-xtractor',
     version=main_ns['__version__'],
     description='A beets plugin for getting something more out of your music...',
     author='Adam Jakab',
@@ -40,7 +44,7 @@ setup(
     include_package_data=True,
     test_suite='test',
 
-    packages=['beetsplug.essentiaextractor'],
+    packages=['beetsplug.xtractor'],
 
     install_requires=[
         'beets>=1.4.9'
