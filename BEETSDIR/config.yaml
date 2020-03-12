@@ -1,0 +1,29 @@
+# DEVELOPMENT CONFIGURATION FILE
+# USAGE: export environment variable BEETSDIR=/path/to/BEETSDIR
+# then: `beets config -p` should list this file
+
+directory: Music
+library: library.db
+asciify_paths: yes
+id3v23: yes
+
+pluginpath:
+    - ~/Documents/Projects/Python/BeetsPluginEssentiaExtractor/beetsplug
+
+plugins:
+    - info
+    - essentiaextractor
+
+format_item: "[format:$format][bpm:$bpm] ::: $path"
+
+import:
+    copy: yes
+    autotag: no
+
+#essentiaextractor:
+#    auto: no
+#    dry-run: no
+#    write: yes
+#    threads: 2
+#    force: no
+#    quiet: no

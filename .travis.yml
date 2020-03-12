@@ -1,0 +1,26 @@
+notifications:
+  email: false
+
+language: python
+
+matrix:
+  include:
+    - env: TOX_ENV=py36-beets_1.4.9
+      python: 3.6
+    - env: TOX_ENV=py37-beets_1.4.9 COVERAGE=1
+      python: 3.7
+    - env: TOX_ENV=py38-beets_master
+      python: 3.8
+    - env: TOX_ENV=py38-beets_1.4.9
+      python: 3.8
+    - env: TOX_ENV=py37-flake8
+      python: 3.7
+
+install:
+  - "pip install tox"
+  - "[ ! -z $COVERAGE ] && pip install coveralls || true"
+
+script: "tox -e $TOX_ENV"
+
+after_success:
+  - "[ ! -z $COVERAGE ] && coveralls || true"

@@ -1,0 +1,23 @@
+# extractor profile used for streaming_extractor_music_svm (HIGH LEVEL)
+
+outputFormat: json
+
+# This requires Gaia: https://github.com/MTG/gaia + https://essentia.upf.edu/svm_models/
+highlevel:
+  compute: 1
+  svm_models:
+    - svm_models/danceability.history
+    - svm_models/gender.history
+    - svm_models/genre_rosamerica.history
+    - svm_models/mood_acoustic.history
+    - svm_models/mood_aggressive.history
+    - svm_models/mood_electronic.history
+    - svm_models/mood_happy.history
+    - svm_models/mood_party.history
+    - svm_models/mood_relaxed.history
+    - svm_models/mood_sad.history
+    - svm_models/voice_instrumental.history
+
+chromaprint:
+  compute: 0
+  duration: 0
