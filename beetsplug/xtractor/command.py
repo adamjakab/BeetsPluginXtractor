@@ -117,7 +117,7 @@ class XtractorCommand(Subcommand):
     def show_version_information(self):
         from beetsplug.xtractor.version import __version__
         self._say(
-            "Bpm Analyser(beets-xtractor) plugin for Beets: v{0}".format(__version__))
+            "Xtractor(beets-xtractor) plugin for Beets: v{0}".format(__version__))
 
     def analyse_songs(self):
         # Setup the query
@@ -184,6 +184,10 @@ class XtractorCommand(Subcommand):
             item['mood_relaxed'] = audiodata['mood_relaxed']
             item['mood_sad'] = audiodata['mood_sad']
             item.store()
+
+        # Delete both files
+        bpmHelper.get_output_path_for_item(item, clear=True, suffix="low")
+        bpmHelper.get_output_path_for_item(item, clear=True, suffix="high")
 
     def _run_analysis_low_level(self, item):
         try:

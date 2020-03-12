@@ -134,7 +134,9 @@ def extract_low_level_data(output_path):
 
 
 def _get_extraction_output_path():
-    extraction_output_path = os.path.join(tempfile.gettempdir(), "ee")
+    # extraction_output_path = os.path.join(tempfile.gettempdir(), "ee")
+    extraction_output_path = os.path.join("/Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR",
+                                          "ee")
 
     if not os.path.isdir(extraction_output_path):
         os.makedirs(extraction_output_path)
