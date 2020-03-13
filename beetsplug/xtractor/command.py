@@ -171,8 +171,12 @@ class XtractorCommand(Subcommand):
 
         # Delete output files (if config wants)
         if self.config["keep_output"].exists() and not self.config["keep_output"].get():
-            os.unlink(self._get_output_path_for_item(item, suffix="low"))
-            os.unlink(self._get_output_path_for_item(item, suffix="high"))
+            output_path = self._get_output_path_for_item(item, suffix="low")
+            if os.path.isfile(output_path):
+                os.unlink(output_path)
+            output_path = self._get_output_path_for_item(item, suffix="high")
+            if os.path.isfile(output_path):
+                os.unlink(output_path)
 
     def _run_write_to_item(self, item):
         if not self.cfg_dry_run:
@@ -251,6 +255,10 @@ class XtractorCommand(Subcommand):
             item.store()
 
     def _run_essentia_extractor(self, extractor_path, input_path, output_path, profile_path):
+        if os.path.isfile(output_path):
+            log.debug("Output exists: {0}".format(output_path))
+            return
+
         log.debug("Extractor: {0}".format(extractor_path))
         log.debug("Input: {0}".format(input_path))
         log.debug("Output: {0}".format(output_path))
@@ -259,8 +267,9 @@ class XtractorCommand(Subcommand):
         proc = Popen([extractor_path, input_path, output_path, profile_path], stdout=PIPE, stderr=PIPE)
         stdout, stderr = proc.communicate()
 
-        # self._say("EE-OUT: {0}".format(stdout.decode()))
-        # self._say("EE-ERR: {0}".format(stderr.decode()))
+        log.debug("The process exited with code: {0}".format(proc.returncode))
+        log.debug("Process stdout: {0}".format(stdout.decode()))
+        log.debug("Process stderr: {0}".format(stderr.decode()))
 
     def _execute_on_each_items(self, items, func):
         total = len(items)
