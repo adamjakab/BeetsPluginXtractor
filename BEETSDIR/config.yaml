@@ -27,7 +27,7 @@ xtractor:
     threads: 1
     force: no
     quiet: no
-    items_per_run: 1
+    items_per_run: 0
     keep_output: yes
     keep_profiles: no
     output_path: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/xtraction
@@ -41,17 +41,17 @@ xtractor:
         highlevel:
             compute: 1
             svm_models:
-                - svm_models/danceability.history
-                - svm_models/gender.history
-                - svm_models/genre_rosamerica.history
-                - svm_models/mood_acoustic.history
-                - svm_models/mood_aggressive.history
-                - svm_models/mood_electronic.history
-                - svm_models/mood_happy.history
-                - svm_models/mood_party.history
-                - svm_models/mood_relaxed.history
-                - svm_models/mood_sad.history
-                - svm_models/voice_instrumental.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/danceability.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/gender.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/genre_rosamerica.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_acoustic.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_aggressive.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_electronic.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_happy.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_party.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_relaxed.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_sad.history
+                - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/voice_instrumental.history
         chromaprint:
             compute: 0
 

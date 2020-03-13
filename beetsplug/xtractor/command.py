@@ -135,18 +135,17 @@ class XtractorCommand(Subcommand):
 
     def xtract(self):
         # Setup the query
-        query = self.query
+        query = " ".join(self.query)
 
-        # Append one low and one high level attribute that should be there after xtraction
+        # Append one low OR one high level attribute that should be there after xtraction
         if not self.cfg_force:
-            query.append("bpm:0")
-            query.append("gender::^$")
+            query = "bpm:0 , gender::^$"
 
         # Get the library items
-        library_items = self.lib.items(self.query)
+        library_items = self.lib.items(query)
 
         if len(library_items) == 0:
-            self._say("No items were found with the specified query: {}".format(query))
+            self._say("No items were found with the specified query: '{}'".format(query))
             return
 
         # Limit the number of items per run (0 means no limit)
