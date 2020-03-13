@@ -3,8 +3,9 @@
 #  Author: Adam Jakab <adam at jakab dot pro>
 #  Created: 3/12/20, 11:42 PM
 #  License: See LICENSE.txt
+import re
 
-from test.helper import TestHelper, Assertions, PLUGIN_NAME, PLUGIN_SHORT_DESCRIPTION, capture_stdout
+from test.helper import TestHelper, Assertions, PLUGIN_NAME, PLUGIN_SHORT_NAME, PLUGIN_SHORT_DESCRIPTION, capture_stdout
 
 
 class CompletionTest(TestHelper, Assertions):
@@ -16,8 +17,13 @@ class CompletionTest(TestHelper, Assertions):
         with capture_stdout() as out:
             self.runcli()
 
-        self.assertIn(PLUGIN_NAME, out.getvalue())
-        self.assertIn(PLUGIN_SHORT_DESCRIPTION, out.getvalue())
+        expected = "{0} \\({1}\\) +?{2}".format(
+            re.escape(PLUGIN_NAME),
+            re.escape(PLUGIN_SHORT_NAME),
+            re.escape(PLUGIN_SHORT_DESCRIPTION)
+        )
+
+        self.assertRegex(out.getvalue(), expected)
 
     def test_application_plugin_list(self):
         with capture_stdout() as out:
@@ -25,5 +31,3 @@ class CompletionTest(TestHelper, Assertions):
 
         self.assertIn("plugins: {0}".format(PLUGIN_NAME), out.getvalue())
 
-    def test_plugin(self):
-        self.runcli(PLUGIN_NAME)

@@ -36,6 +36,7 @@ logging.getLogger('beets').propagate = True
 
 # Values
 PLUGIN_NAME = 'xtractor'
+PLUGIN_SHORT_NAME = 'xt'
 PLUGIN_SHORT_DESCRIPTION = 'get more out of your music...'
 
 
@@ -129,7 +130,7 @@ class TestHelper(TestCase, Assertions):
 
     def reset_beets(self, config_file: bytes):
         self.teardown_beets()
-        plugins._classes = {xtractor.EssentiaExtractorPlugin}
+        plugins._classes = {xtractor.XtractorPlugin}
         self._setup_beets(config_file)
 
     def _setup_beets(self, config_file: bytes):

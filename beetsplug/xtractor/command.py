@@ -5,12 +5,14 @@
 #  License: See LICENSE.txt
 
 import logging
+import os
 from concurrent import futures
 from optparse import OptionParser
 from subprocess import Popen, PIPE
 
 from beets.library import Library as BeatsLibrary
 from beets.ui import Subcommand, decargs
+from confuse import Subview
 
 import beetsplug.xtractor.helper as bpmHelper
 
@@ -19,7 +21,8 @@ log = logging.getLogger('beets.xtractor')
 
 
 class XtractorCommand(Subcommand):
-    config = None
+    config: Subview = None
+
     lib = None
     query = None
     parser = None
@@ -30,17 +33,20 @@ class XtractorCommand(Subcommand):
     cfg_threads = 1
     cfg_force = False
     cfg_quiet = False
+    cfg_items_per_run = 0
 
-    def __init__(self, cfg):
-        self.config = cfg.flatten()
+    def __init__(self, config):
+        self.config = config
 
-        self.cfg_auto = self.config.get("auto")
-        self.cfg_dry_run = self.config.get("dry-run")
-        self.cfg_write = self.config.get("write")
-        self.cfg_threads = self.config.get("threads")
-        self.cfg_force = self.config.get("force")
+        cfg = self.config.flatten()
+        self.cfg_auto = cfg.get("auto")
+        self.cfg_dry_run = cfg.get("dry-run")
+        self.cfg_write = cfg.get("write")
+        self.cfg_threads = cfg.get("threads")
+        self.cfg_force = cfg.get("force")
         self.cfg_version = False
-        self.cfg_quiet = self.config.get("quiet")
+        self.cfg_quiet = cfg.get("quiet")
+        self.cfg_items_per_run = cfg.get("items_per_run")
 
         self.parser = OptionParser(usage='%prog [options] [QUERY...]')
 
@@ -93,7 +99,7 @@ class XtractorCommand(Subcommand):
         super(XtractorCommand, self).__init__(
             parser=self.parser,
             name='xtractor',
-            help=u'get more out of your songs...',
+            help=u'get more out of your music...',
             aliases=["xt"]
         )
 
@@ -112,34 +118,43 @@ class XtractorCommand(Subcommand):
             self.show_version_information()
             return
 
-        self.analyse_songs()
+        self.xtract()
 
     def show_version_information(self):
         from beetsplug.xtractor.version import __version__
         self._say(
             "Xtractor(beets-xtractor) plugin for Beets: v{0}".format(__version__))
 
-    def analyse_songs(self):
+    def xtract(self):
         # Setup the query
         query = self.query
-        # todo: this does not make sense anymore (just like the name of the plugin)
+
+        # Append one low and one high level attribute that should be there after xtraction
         if not self.cfg_force:
-            query_element = "bpm:0"
-            query.append(query_element)
+            query.append("bpm:0")
+            query.append("gender::^$")
 
         # Get the library items
-        # @todo: implement an option so that user can decide to limit the number of items per run
-        items = self.lib.items(self.query)
+        library_items = self.lib.items(self.query)
 
-        self.execute_on_items(items, self._run_full_analysis, msg='Low-level analysis...')
-        # self.execute_on_items(items, self._run_analysis_low_level, msg='Low-level analysis...')
-        # self.execute_on_items(items, self._run_analysis_high_level, msg='High-level analysis...')
-        # self.execute_on_items(items, self._run_write_to_item, msg='Writing to files...')
+        if len(library_items) == 0:
+            self._say("No items were found with the specified query: {}".format(query))
+            return
+
+        # Limit the number of items per run (0 means no limit)
+        items = []
+        for item in library_items:
+            items.append(item)
+            if self.cfg_items_per_run != 0 and len(items) >= self.cfg_items_per_run:
+                break
+
+        self._say("Number of items selected: {}".format(len(items)))
+        self._execute_on_each_items(items, self._run_full_analysis)
 
     def _run_full_analysis(self, item):
         self._run_analysis_low_level(item)
-        self._run_analysis_high_level(item)
-        self._run_write_to_item(item)
+        # self._run_analysis_high_level(item)
+        # self._run_write_to_item(item)
 
     def _run_write_to_item(self, item):
         if not self.cfg_dry_run:
@@ -148,14 +163,14 @@ class XtractorCommand(Subcommand):
 
     def _run_analysis_high_level(self, item):
         try:
-            extractor_path = bpmHelper.get_extractor_path_svm()
+            extractor_path = self.get_extractor_path(level="high")
             input_path = bpmHelper.get_output_path_for_item(item, clear=False, suffix="low")
             output_path = bpmHelper.get_output_path_for_item(item, clear=True, suffix="high")
             profile_path = bpmHelper.get_extractor_profile_path_svm()
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
             return
-        except NotImplementedError as e:
+        except KeyError as e:
             self._say("Not implemented: {0}".format(e))
             return
 
@@ -191,15 +206,18 @@ class XtractorCommand(Subcommand):
 
     def _run_analysis_low_level(self, item):
         try:
-            extractor_path = bpmHelper.get_extractor_path()
+            extractor_path = self.get_extractor_path(level="low")
             input_path = bpmHelper.get_input_path_for_item(item)
             output_path = bpmHelper.get_output_path_for_item(item, clear=True, suffix="low")
             profile_path = bpmHelper.get_extractor_profile_path()
-        except FileNotFoundError as e:
-            self._say("File not found: {0}".format(e))
+        except ValueError as e:
+            self._say("Value error: {0}".format(e))
             return
-        except NotImplementedError as e:
-            self._say("Not implemented: {0}".format(e))
+        except KeyError as e:
+            self._say("Configuration error: {0}".format(e))
+            return
+        except FileNotFoundError as e:
+            self._say("File not found error: {0}".format(e))
             return
 
         self._say("Running low-level analysis: {0}".format(input_path))
@@ -230,13 +248,28 @@ class XtractorCommand(Subcommand):
         # self._say("EE-OUT: {0}".format(stdout.decode()))
         # self._say("EE-ERR: {0}".format(stderr.decode()))
 
-    def execute_on_items(self, items, func, msg=None):
+    def _execute_on_each_items(self, items, func):
         total = len(items)
         finished = 0
         with futures.ThreadPoolExecutor(max_workers=self.cfg_threads) as e:
             for _ in e.map(func, items):
                 finished += 1
                 # todo: show a progress bar (--progress-only option)
+
+    def get_extractor_path(self, level):
+        if level not in ("low", "high"):
+            raise ValueError("Extractor level must be either 'low' or 'high'. Given: {}".format(level))
+
+        extractor_key = "{}_level_extractor".format(level)
+        if not self.config[extractor_key].exists():
+            raise KeyError("Key '{}' is not defined".format(extractor_key))
+
+        extractor_path = self.config[extractor_key].as_filename()
+
+        if not os.path.isfile(extractor_path):
+            raise FileNotFoundError("Extractor({}) is not found!".format(extractor_path))
+
+        return extractor_path
 
     def _say(self, msg):
         if not self.cfg_quiet:
