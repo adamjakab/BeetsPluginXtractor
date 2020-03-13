@@ -17,7 +17,7 @@ from beets.library import Library as BeatsLibrary, Item
 from beets.ui import Subcommand, decargs
 from confuse import Subview
 
-import beetsplug.xtractor.helper as bpmHelper
+from beetsplug.xtractor import helper as bpmHelper
 
 # Module methods
 log = logging.getLogger('beets.xtractor')
