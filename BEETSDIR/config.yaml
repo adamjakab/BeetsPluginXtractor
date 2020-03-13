@@ -23,12 +23,13 @@ import:
 xtractor:
     auto: no
     dry-run: no
-    write: yes
+    write: no
     threads: 2
     force: no
     quiet: no
-    items_per_run: 1
+    items_per_run: 3
     keep_output: yes
+    keep_profiles: yes
     output_path: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/xtraction
     low_level_extractor: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/essentia/extractors/osx_x86_64_streaming_extractor_music
     high_level_extractor: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/essentia/extractors/osx_x86_64_streaming_extractor_music_svm

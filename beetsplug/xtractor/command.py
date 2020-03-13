@@ -159,16 +159,20 @@ class XtractorCommand(Subcommand):
         self._say("Number of items selected: {}".format(len(items)))
         self._execute_on_each_items(items, self._run_full_analysis)
 
+        # Delete profiles (if config wants)
+        if self.config["keep_profiles"].exists() and not self.config["keep_profiles"].get():
+            os.unlink(self._get_extractor_profile_path("low"))
+            os.unlink(self._get_extractor_profile_path("high"))
+
     def _run_full_analysis(self, item):
         self._run_analysis_low_level(item)
         self._run_analysis_high_level(item)
-        # self._run_write_to_item(item)
+        self._run_write_to_item(item)
 
         # Delete output files (if config wants)
-
-        # Delete profiles (if config wants)
-        # os.unlink(self._get_extractor_profile_path("low"))
-        # os.unlink(self._get_extractor_profile_path("high"))
+        if self.config["keep_output"].exists() and not self.config["keep_output"].get():
+            os.unlink(self._get_output_path_for_item(item, suffix="low"))
+            os.unlink(self._get_output_path_for_item(item, suffix="high"))
 
     def _run_write_to_item(self, item):
         if not self.cfg_dry_run:
@@ -212,20 +216,6 @@ class XtractorCommand(Subcommand):
             ]:
                 setattr(item, attr, audiodata.get(attr))
             item.store()
-
-        # if not self.cfg_dry_run:
-        #     item['danceable'] = audiodata['danceable']
-        #     item['gender'] = audiodata['gender']
-        #     item['genre_rosamerica'] = audiodata['genre_rosamerica']
-        #     item['voice_instrumental'] = audiodata['voice_instrumental']
-        #     item['mood_acoustic'] = audiodata['mood_acoustic']
-        #     item['mood_aggressive'] = audiodata['mood_aggressive']
-        #     item['mood_electronic'] = audiodata['mood_electronic']
-        #     item['mood_happy'] = audiodata['mood_happy']
-        #     item['mood_party'] = audiodata['mood_party']
-        #     item['mood_relaxed'] = audiodata['mood_relaxed']
-        #     item['mood_sad'] = audiodata['mood_sad']
-        #     item.store()
 
     def _run_analysis_low_level(self, item):
         try:
