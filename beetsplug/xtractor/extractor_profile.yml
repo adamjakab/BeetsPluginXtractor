@@ -1,4 +1,0 @@
-# extractor profile used for streaming_extractor_music (LOW LEVEL)
-
-outputFormat: json
-outputFrames: 0

@@ -29,7 +29,28 @@ xtractor:
     quiet: no
     items_per_run: 1
     keep_output: yes
-    output_path: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/ee
+    output_path: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/xtraction
     low_level_extractor: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/essentia/extractors/osx_x86_64_streaming_extractor_music
     high_level_extractor: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/essentia/extractors/osx_x86_64_streaming_extractor_music_svm
+    low_level_profile:
+        outputFormat: yaml
+        outputFrames: 0
+    high_level_profile:
+        outputFormat: json
+        highlevel:
+            compute: 1
+            svm_models:
+                - svm_models/danceability.history
+                - svm_models/gender.history
+                - svm_models/genre_rosamerica.history
+                - svm_models/mood_acoustic.history
+                - svm_models/mood_aggressive.history
+                - svm_models/mood_electronic.history
+                - svm_models/mood_happy.history
+                - svm_models/mood_party.history
+                - svm_models/mood_relaxed.history
+                - svm_models/mood_sad.history
+                - svm_models/voice_instrumental.history
+        chromaprint:
+            compute: 0
 

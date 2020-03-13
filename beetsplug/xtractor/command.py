@@ -3,14 +3,17 @@
 #  Author: Adam Jakab <adam at jakab dot pro>
 #  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
-
+import hashlib
+import json
 import logging
 import os
+import tempfile
 from concurrent import futures
 from optparse import OptionParser
 from subprocess import Popen, PIPE
 
-from beets.library import Library as BeatsLibrary
+import yaml
+from beets.library import Library as BeatsLibrary, Item
 from beets.ui import Subcommand, decargs
 from confuse import Subview
 
@@ -18,6 +21,11 @@ import beetsplug.xtractor.helper as bpmHelper
 
 # Module methods
 log = logging.getLogger('beets.xtractor')
+
+# The plugin
+__PLUGIN_NAME__ = u'xtractor'
+__PLUGIN_SHORT_NAME__ = u'xt'
+__PLUGIN_SHORT_DESCRIPTION__ = u'get more out of your music...'
 
 
 class XtractorCommand(Subcommand):
@@ -98,9 +106,9 @@ class XtractorCommand(Subcommand):
         # Keep this at the end
         super(XtractorCommand, self).__init__(
             parser=self.parser,
-            name='xtractor',
-            help=u'get more out of your music...',
-            aliases=["xt"]
+            name=__PLUGIN_NAME__,
+            help=__PLUGIN_SHORT_DESCRIPTION__,
+            aliases=[__PLUGIN_SHORT_NAME__]
         )
 
     def func(self, lib: BeatsLibrary, options, arguments):
@@ -153,8 +161,14 @@ class XtractorCommand(Subcommand):
 
     def _run_full_analysis(self, item):
         self._run_analysis_low_level(item)
-        # self._run_analysis_high_level(item)
+        self._run_analysis_high_level(item)
         # self._run_write_to_item(item)
+
+        # Delete output files (if config wants)
+
+        # Delete profiles (if config wants)
+        # os.unlink(self._get_extractor_profile_path("low"))
+        # os.unlink(self._get_extractor_profile_path("high"))
 
     def _run_write_to_item(self, item):
         if not self.cfg_dry_run:
@@ -163,20 +177,24 @@ class XtractorCommand(Subcommand):
 
     def _run_analysis_high_level(self, item):
         try:
-            extractor_path = self.get_extractor_path(level="high")
-            input_path = bpmHelper.get_output_path_for_item(item, clear=False, suffix="low")
-            output_path = bpmHelper.get_output_path_for_item(item, clear=True, suffix="high")
-            profile_path = bpmHelper.get_extractor_profile_path_svm()
-        except FileNotFoundError as e:
-            self._say("File not found: {0}".format(e))
+            extractor_path = self._get_extractor_path(level="high")
+            input_path = self._get_output_path_for_item(item, suffix="low")
+            output_path = self._get_output_path_for_item(item, suffix="high")
+            profile_path = self._get_extractor_profile_path(level="high")
+        except ValueError as e:
+            self._say("Value error: {0}".format(e))
             return
         except KeyError as e:
-            self._say("Not implemented: {0}".format(e))
+            self._say("Configuration error: {0}".format(e))
+            return
+        except FileNotFoundError as e:
+            self._say("File not found error: {0}".format(e))
             return
 
         self._say("Running high-level analysis: {0}".format(input_path))
         self._run_essentia_extractor(extractor_path, input_path, output_path, profile_path)
 
+        # todo: allow failing individual attributes
         try:
             audiodata = bpmHelper.extract_high_level_data(output_path)
         except FileNotFoundError as e:
@@ -187,29 +205,34 @@ class XtractorCommand(Subcommand):
             return
 
         if not self.cfg_dry_run:
-            item['danceable'] = audiodata['danceable']
-            item['gender'] = audiodata['gender']
-            item['genre_rosamerica'] = audiodata['genre_rosamerica']
-            item['voice_instrumental'] = audiodata['voice_instrumental']
-            item['mood_acoustic'] = audiodata['mood_acoustic']
-            item['mood_aggressive'] = audiodata['mood_aggressive']
-            item['mood_electronic'] = audiodata['mood_electronic']
-            item['mood_happy'] = audiodata['mood_happy']
-            item['mood_party'] = audiodata['mood_party']
-            item['mood_relaxed'] = audiodata['mood_relaxed']
-            item['mood_sad'] = audiodata['mood_sad']
+            for attr in [
+                "danceable", "gender", "genre_rosamerica", "voice_instrumental",
+                "mood_acoustic", "mood_aggressive", "mood_electronic",
+                "mood_happy", "mood_party", "mood_relaxed", "mood_sad"
+            ]:
+                setattr(item, attr, audiodata.get(attr))
             item.store()
 
-        # Delete both files
-        bpmHelper.get_output_path_for_item(item, clear=True, suffix="low")
-        bpmHelper.get_output_path_for_item(item, clear=True, suffix="high")
+        # if not self.cfg_dry_run:
+        #     item['danceable'] = audiodata['danceable']
+        #     item['gender'] = audiodata['gender']
+        #     item['genre_rosamerica'] = audiodata['genre_rosamerica']
+        #     item['voice_instrumental'] = audiodata['voice_instrumental']
+        #     item['mood_acoustic'] = audiodata['mood_acoustic']
+        #     item['mood_aggressive'] = audiodata['mood_aggressive']
+        #     item['mood_electronic'] = audiodata['mood_electronic']
+        #     item['mood_happy'] = audiodata['mood_happy']
+        #     item['mood_party'] = audiodata['mood_party']
+        #     item['mood_relaxed'] = audiodata['mood_relaxed']
+        #     item['mood_sad'] = audiodata['mood_sad']
+        #     item.store()
 
     def _run_analysis_low_level(self, item):
         try:
-            extractor_path = self.get_extractor_path(level="low")
-            input_path = bpmHelper.get_input_path_for_item(item)
-            output_path = bpmHelper.get_output_path_for_item(item, clear=True, suffix="low")
-            profile_path = bpmHelper.get_extractor_profile_path()
+            extractor_path = self._get_extractor_path(level="low")
+            input_path = self._get_input_path_for_item(item)
+            output_path = self._get_output_path_for_item(item, suffix="low")
+            profile_path = self._get_extractor_profile_path(level="low")
         except ValueError as e:
             self._say("Value error: {0}".format(e))
             return
@@ -233,7 +256,8 @@ class XtractorCommand(Subcommand):
             return
 
         if not self.cfg_dry_run:
-            item['bpm'] = audiodata['bpm']
+            for attr in ["bpm"]:
+                setattr(item, attr, audiodata.get(attr))
             item.store()
 
     def _run_essentia_extractor(self, extractor_path, input_path, output_path, profile_path):
@@ -256,7 +280,69 @@ class XtractorCommand(Subcommand):
                 finished += 1
                 # todo: show a progress bar (--progress-only option)
 
-    def get_extractor_path(self, level):
+    def _get_output_path_for_item(self, item: Item, suffix=""):
+        identifier = item.get("mb_trackid")
+        if not identifier:
+            input_path = self._get_input_path_for_item(item)
+            identifier = hashlib.md5(input_path.encode('utf-8')).hexdigest()
+
+        output_file = "{id}{sfx}{ext}".format(
+            id=identifier,
+            sfx=".{}".format(suffix) if suffix else "",
+            ext=".json"
+        )
+
+        return os.path.join(self._get_extraction_output_path(), output_file)
+
+    def _get_input_path_for_item(self, item: Item):
+        input_path = item.get("path").decode("utf-8")
+
+        if not os.path.isfile(input_path):
+            raise FileNotFoundError("Input file({}) not found!".format(input_path))
+
+        return input_path
+
+    def _get_extraction_output_path(self):
+        if self.config["output_path"].exists():
+            if not os.path.isdir(self.config["output_path"].as_filename()):
+                raise FileNotFoundError(
+                    "Output path({}) does not exist!".format(self.config["output_path"].as_filename()))
+
+            output_path = self.config["output_path"].as_filename()
+        else:
+            output_path = os.path.join(tempfile.gettempdir(), __PLUGIN_NAME__)
+            if not os.path.isdir(output_path):
+                os.makedirs(output_path)
+
+        return output_path
+
+    def _get_extractor_profile_path(self, level):
+        if level not in ("low", "high"):
+            raise ValueError("Profile level must be either 'low' or 'high'. Given: {}".format(level))
+
+        profile_key = "{}_level_profile".format(level)
+        profile_filename = "{}.yml".format(profile_key)
+        profile_path = os.path.join(self._get_extraction_output_path(), profile_filename)
+
+        if not os.path.isfile(profile_path):
+            # Generate profile file
+            if not self.config[profile_key].exists():
+                raise KeyError("Key '{}' is not defined".format(profile_key))
+
+            profile_content = self.config[profile_key].flatten()
+            profile_content = json.loads(json.dumps(profile_content))
+            # Override outputFormat (we only hande json for now)
+            profile_content["outputFormat"] = "json"
+
+            f = open(profile_path, 'w+')
+            yaml.dump(profile_content, f, allow_unicode=True)
+
+            if not os.path.isfile(profile_path):
+                raise FileNotFoundError("Extractor profile({}) not created!".format(profile_path))
+
+        return profile_path
+
+    def _get_extractor_path(self, level):
         if level not in ("low", "high"):
             raise ValueError("Extractor level must be either 'low' or 'high'. Given: {}".format(level))
 
