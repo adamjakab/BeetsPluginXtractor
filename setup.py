@@ -39,7 +39,9 @@ setup(
     packages=['beetsplug.xtractor'],
 
     install_requires=[
-        'beets>=1.4.9'
+        'beets>=1.4.9',
+        'confuse',
+        'PyYAML'
     ],
 
     tests_require=[

@@ -21,7 +21,6 @@ from beets import plugins
 from beets import ui
 from beets import util
 from beets.library import Item
-# from beets.mediafile import MediaFile
 from beets.util import (
     syspath,
     bytestring_path,

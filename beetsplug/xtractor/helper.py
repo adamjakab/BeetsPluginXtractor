@@ -4,13 +4,8 @@
 #  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
 
-import hashlib
 import json
 import os
-import sys
-import tempfile
-
-from beets.library import Item
 
 _module_path = os.path.dirname(__file__)
 
