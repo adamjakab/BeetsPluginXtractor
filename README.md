@@ -3,7 +3,7 @@
 [![PyPi](https://img.shields.io/pypi/v/beets-xtractor.svg)](https://pypi.org/project/beets-xtractor/)
 
 
-# BPM Analyser (beets plugin)
+# Xtractor (beets plugin)
 
 *A [beets](https://github.com/beetbox/beets) plugin for insane obsessive-compulsive music geeks.*
 
