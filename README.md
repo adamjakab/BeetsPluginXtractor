@@ -14,7 +14,7 @@ The *beets-xtractor* plugin lets you use the extractors of the Essentia project 
 The plugin can be installed via:
 
 ```shell script
-$ pip install beets-xtractor (*not yet!*)
+$ pip install beets-xtractor (*not just yet!*)
 ```
 
 
