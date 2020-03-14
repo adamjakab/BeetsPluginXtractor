@@ -54,6 +54,7 @@ class XtractorCommand(Subcommand):
         self.cfg_threads = cfg.get("threads")
         self.cfg_force = cfg.get("force")
         self.cfg_version = False
+        self.cfg_count_only = False
         self.cfg_quiet = cfg.get("quiet")
         self.cfg_items_per_run = cfg.get("items_per_run")
 
@@ -62,16 +63,14 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-d', '--dry-run',
             action='store_true', dest='dryrun', default=self.cfg_dry_run,
-            help=u'[default: {}] display the bpm values but do not update the '
-                 u'library items'.format(
+            help=u'[default: {}] display the bpm values but do not update the library items'.format(
                 self.cfg_dry_run)
         )
 
         self.parser.add_option(
             '-w', '--write',
             action='store_true', dest='write', default=self.cfg_write,
-            help=u'[default: {}] write the bpm values to the media '
-                 u'files'.format(
+            help=u'[default: {}] write the bpm values to the media files'.format(
                 self.cfg_write)
         )
 
@@ -79,17 +78,20 @@ class XtractorCommand(Subcommand):
             '-t', '--threads',
             action='store', dest='threads', type='int',
             default=self.cfg_threads,
-            help=u'[default: {}] the number of threads to run in '
-                 u'parallel'.format(
+            help=u'[default: {}] the number of threads to run in parallel'.format(
                 self.cfg_threads)
         )
 
         self.parser.add_option(
             '-f', '--force',
             action='store_true', dest='force', default=self.cfg_force,
-            help=u'[default: {}] force analysis of items with non-zero bpm '
-                 u'values'.format(
-                self.cfg_force)
+            help=u'[default: {}] force analysis of items with non-zero bpm values'.format(self.cfg_force)
+        )
+
+        self.parser.add_option(
+            '-c', '--count-only',
+            action='store_true', dest='count_only', default=self.cfg_count_only,
+            help=u'[default: {}] Show the number of items to be processed'.format(self.cfg_count_only)
         )
 
         self.parser.add_option(
@@ -118,6 +120,7 @@ class XtractorCommand(Subcommand):
         self.cfg_threads = options.threads
         self.cfg_force = options.force
         self.cfg_version = options.version
+        self.cfg_count_only = options.count_only
         self.cfg_quiet = options.quiet
 
         self.lib = lib
@@ -128,11 +131,6 @@ class XtractorCommand(Subcommand):
             return
 
         self.xtract()
-
-    def show_version_information(self):
-        from beetsplug.xtractor.version import __version__
-        self._say(
-            "Xtractor(beets-xtractor) plugin for Beets: v{0}".format(__version__))
 
     def xtract(self):
         # Parse the incoming query
@@ -155,6 +153,11 @@ class XtractorCommand(Subcommand):
         library_items = self.lib.items(combined_query, parsed_sort)
         if len(library_items) == 0:
             self._say("No items to process")
+            return
+
+        # Count only and exit
+        if self.cfg_count_only:
+            self._say("Number of items to be processed: {}".format(len(library_items)))
             return
 
         # Limit the number of items per run (0 means no limit)
@@ -363,6 +366,11 @@ class XtractorCommand(Subcommand):
             raise FileNotFoundError("Extractor({}) is not found!".format(extractor_path))
 
         return extractor_path
+
+    def show_version_information(self):
+        from beetsplug.xtractor.version import __version__
+        self._say(
+            "Xtractor(beets-{0}) plugin for Beets: v{1}".format(__PLUGIN_NAME__, __version__))
 
     def _say(self, msg):
         if not self.cfg_quiet:
