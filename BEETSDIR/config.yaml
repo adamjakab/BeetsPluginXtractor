@@ -27,7 +27,7 @@ xtractor:
     threads: 1
     force: no
     quiet: no
-    items_per_run: 0
+    items_per_run: 1
     keep_output: yes
     keep_profiles: no
     output_path: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/xtraction

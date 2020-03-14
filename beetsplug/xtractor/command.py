@@ -13,7 +13,8 @@ from optparse import OptionParser
 from subprocess import Popen, PIPE
 
 import yaml
-from beets.library import Library as BeatsLibrary, Item
+from beets import dbcore
+from beets.library import Library, Item, parse_query_string
 from beets.ui import Subcommand, decargs
 from confuse import Subview
 
@@ -111,7 +112,7 @@ class XtractorCommand(Subcommand):
             aliases=[__PLUGIN_SHORT_NAME__]
         )
 
-    def func(self, lib: BeatsLibrary, options, arguments):
+    def func(self, lib: Library, options, arguments):
         self.cfg_dry_run = options.dryrun
         self.cfg_write = options.write
         self.cfg_threads = options.threads
@@ -134,18 +135,26 @@ class XtractorCommand(Subcommand):
             "Xtractor(beets-xtractor) plugin for Beets: v{0}".format(__version__))
 
     def xtract(self):
-        # Setup the query
-        query = " ".join(self.query)
+        # Parse the incoming query
+        parsed_query, parsed_sort = parse_query_string(" ".join(self.query), Item)
+        combined_query = parsed_query
 
-        # Append one low OR one high level attribute that should be there after xtraction
+        # Add unprocessed items query = "bpm:0 , gender::^$"
         if not self.cfg_force:
-            query = "bpm:0 , gender::^$"
+            # Set up the query for unprocessed items
+            unprocessed_items_query = dbcore.query.OrQuery(
+                [
+                    dbcore.query.NumericQuery(u'bpm', u'0'),
+                    dbcore.query.MatchQuery(u'gender', u'', fast=False),
+                    dbcore.query.MatchQuery(u'gender', None, fast=False),
+                ]
+            )
+            combined_query = dbcore.query.AndQuery([parsed_query, unprocessed_items_query])
 
         # Get the library items
-        library_items = self.lib.items(query)
-
+        library_items = self.lib.items(combined_query, parsed_sort)
         if len(library_items) == 0:
-            self._say("No items were found with the specified query: '{}'".format(query))
+            self._say("No items to process")
             return
 
         # Limit the number of items per run (0 means no limit)
