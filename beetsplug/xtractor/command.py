@@ -144,10 +144,12 @@ class XtractorCommand(Subcommand):
                 [
                     dbcore.query.NumericQuery(u'bpm', u'0'),
                     dbcore.query.MatchQuery(u'gender', u'', fast=False),
-                    dbcore.query.MatchQuery(u'gender', None, fast=False),
+                    dbcore.query.MatchQuery(u'gender', None, fast=False)
                 ]
             )
             combined_query = dbcore.query.AndQuery([parsed_query, unprocessed_items_query])
+
+        log.debug("Combined query: {}".format(combined_query))
 
         # Get the library items
         library_items = self.lib.items(combined_query, parsed_sort)
