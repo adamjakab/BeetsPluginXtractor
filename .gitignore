@@ -160,4 +160,9 @@ dmypy.json
 
 .idea_modules/
 .idea/replstate.xml
-/.idea/terminal.xml
+.idea/terminal.xml
+.idea/dataSources.xml
+
+# OS
+.DS_Store
+
