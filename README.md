@@ -5,19 +5,21 @@
 
 # Xtractor (beets plugin)
 
-*A [beets](https://github.com/beetbox/beets) plugin for insane obsessive-compulsive music geeks.*
+The *beets-xtractor* plugin lets you use the extractors of the [Essentia](https://essentia.upf.edu/index.html) project developed by the Music Technology Group.
 
-The *beets-xtractor* plugin lets you use the extractors of the Essentia project developed by (credits here) to...
+
+*NOTE: This plugin is highly unstable and not at all documented! Use it at your own risk*
 
 
 ## Installation
 The plugin can be installed via:
 
 ```shell script
-$ pip install beets-xtractor (*not just yet!*)
+$ pip install beets-xtractor
 ```
 
 
+## References
 [Essentia](https://essentia.upf.edu/index.html)
 
 [SVM Models](https://essentia.upf.edu/svm_models/)
@@ -27,5 +29,4 @@ $ pip install beets-xtractor (*not just yet!*)
 [MTG Github - Music Technology Group](https://github.com/MTG)
 
 [Acousticbrainz Downloads](https://acousticbrainz.org/download)
-
 

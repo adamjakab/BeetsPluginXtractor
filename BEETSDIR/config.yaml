@@ -28,17 +28,17 @@ xtractor:
     force: no
     quiet: no
     items_per_run: 0
-    keep_output: no
+    keep_output: yes
     keep_profiles: no
     output_path: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/xtraction
     low_level_extractor: /Users/jackisback/Documents/Projects/Other/extractors/beta5/essentia_streaming_extractor_music
     high_level_extractor: /Users/jackisback/Documents/Projects/Other/extractors/beta5/essentia_streaming_extractor_music_svm
     low_level_profile:
-      outputFormat: yaml
-      outputFrames: 0
+        outputFormat: yaml
+        outputFrames: 0
     high_level_profile:
-      outputFormat: json
-      highlevel:
+        outputFormat: json
+        highlevel:
             compute: 1
             svm_models:
                 - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/danceability.history
@@ -52,6 +52,6 @@ xtractor:
                 - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_relaxed.history
                 - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/mood_sad.history
                 - /Users/jackisback/Documents/Projects/Other/extractors/svm_models_beta5/voice_instrumental.history
-        chromaprint:
-            compute: 0
+    chromaprint:
+        compute: 0
 
