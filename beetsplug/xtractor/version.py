@@ -4,4 +4,4 @@
 #  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
 
-__version__ = '0.1.2'
+__version__ = '0.2.0'
