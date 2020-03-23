@@ -28,7 +28,7 @@ xtractor:
     force: no
     quiet: no
     items_per_run: 0
-    keep_output: no
+    keep_output: yes
     keep_profiles: no
     output_path: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/xtraction
     low_level_extractor: /Users/jackisback/Documents/Projects/Other/extractors/beta5/essentia_streaming_extractor_music

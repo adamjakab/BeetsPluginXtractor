@@ -142,9 +142,26 @@ class XtractorCommand(Subcommand):
             # Set up the query for unprocessed items
             unprocessed_items_query = dbcore.query.OrQuery(
                 [
+                    # LOW
+                    # dbcore.query.NoneQuery(u'average_loudness', fast=False),
+                    dbcore.query.MatchQuery(u'average_loudness', None, fast=False),
                     dbcore.query.NumericQuery(u'bpm', u'0'),
-                    dbcore.query.MatchQuery(u'gender', u'', fast=False),
-                    dbcore.query.MatchQuery(u'gender', None, fast=False)
+                    dbcore.query.MatchQuery(u'danceability', None, fast=False),
+                    dbcore.query.MatchQuery(u'beats_count', None, fast=False),
+
+                    # HIGH
+                    dbcore.query.MatchQuery(u'danceable', None, fast=False),
+                    dbcore.query.MatchQuery(u'gender', None, fast=False),
+                    dbcore.query.MatchQuery(u'genre_rosamerica', None, fast=False),
+                    dbcore.query.MatchQuery(u'voice_instrumental', None, fast=False),
+
+                    dbcore.query.MatchQuery(u'mood_acoustic', None, fast=False),
+                    dbcore.query.MatchQuery(u'mood_aggressive', None, fast=False),
+                    dbcore.query.MatchQuery(u'mood_electronic', None, fast=False),
+                    dbcore.query.MatchQuery(u'mood_happy', None, fast=False),
+                    dbcore.query.MatchQuery(u'mood_party', None, fast=False),
+                    dbcore.query.MatchQuery(u'mood_relaxed', None, fast=False),
+                    dbcore.query.MatchQuery(u'mood_sad', None, fast=False),
                 ]
             )
             combined_query = dbcore.query.AndQuery([parsed_query, unprocessed_items_query])
@@ -215,9 +232,9 @@ class XtractorCommand(Subcommand):
         self._say("Running high-level analysis: {0}".format(input_path))
         self._run_essentia_extractor(extractor_path, input_path, output_path, profile_path)
 
-        # todo: allow failing individual attributes
         try:
-            audiodata = bpmHelper.extract_high_level_data(output_path)
+            target_map = self.config["high_level_targets"]
+            audiodata = bpmHelper.extract_from_output(output_path, target_map)
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
             return
@@ -225,13 +242,12 @@ class XtractorCommand(Subcommand):
             self._say("Attribute not present: {0}".format(e))
             return
 
+        print(audiodata)
+
         if not self.cfg_dry_run:
-            for attr in [
-                "danceable", "gender", "genre_rosamerica", "voice_instrumental",
-                "mood_acoustic", "mood_aggressive", "mood_electronic",
-                "mood_happy", "mood_party", "mood_relaxed", "mood_sad"
-            ]:
-                setattr(item, attr, audiodata.get(attr))
+            for attr in audiodata.keys():
+                if audiodata.get(attr):
+                    setattr(item, attr, audiodata.get(attr))
             item.store()
 
     def _run_analysis_low_level(self, item):
@@ -254,7 +270,9 @@ class XtractorCommand(Subcommand):
         self._run_essentia_extractor(extractor_path, input_path, output_path, profile_path)
 
         try:
-            audiodata = bpmHelper.extract_low_level_data(output_path)
+            target_map = self.config["low_level_targets"]
+            audiodata = bpmHelper.extract_from_output(output_path, target_map)
+
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
             return
@@ -263,8 +281,9 @@ class XtractorCommand(Subcommand):
             return
 
         if not self.cfg_dry_run:
-            for attr in ["bpm"]:
-                setattr(item, attr, audiodata.get(attr))
+            for attr in audiodata.keys():
+                if audiodata.get(attr):
+                    setattr(item, attr, audiodata.get(attr))
             item.store()
 
     def _run_essentia_extractor(self, extractor_path, input_path, output_path, profile_path):
