@@ -242,8 +242,6 @@ class XtractorCommand(Subcommand):
             self._say("Attribute not present: {0}".format(e))
             return
 
-        print(audiodata)
-
         if not self.cfg_dry_run:
             for attr in audiodata.keys():
                 if audiodata.get(attr):
