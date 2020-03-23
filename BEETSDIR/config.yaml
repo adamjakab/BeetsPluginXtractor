@@ -2,8 +2,11 @@
 # USAGE: export environment variable BEETSDIR=/path/to/BEETSDIR
 # then: `beets config -p` should list this file
 
-directory: Music
-library: library.db
+directory: /Volumes/J/Music/
+library: ~/.config/beets/real_library.db
+#directory: Music
+#library: library.db
+
 asciify_paths: yes
 id3v23: yes
 
@@ -27,14 +30,14 @@ xtractor:
     threads: 1
     force: no
     quiet: no
-    items_per_run: 0
+    items_per_run: 1
     keep_output: yes
     keep_profiles: no
     output_path: /Users/jackisback/Documents/Projects/Python/BeetsPluginXtractor/BEETSDIR/xtraction
     low_level_extractor: /Users/jackisback/Documents/Projects/Other/extractors/beta5/essentia_streaming_extractor_music
     high_level_extractor: /Users/jackisback/Documents/Projects/Other/extractors/beta5/essentia_streaming_extractor_music_svm
     low_level_profile:
-        outputFormat: yaml
+        outputFormat: json
         outputFrames: 0
     high_level_profile:
         outputFormat: json
