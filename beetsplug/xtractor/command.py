@@ -14,6 +14,7 @@ from subprocess import Popen, PIPE
 
 import yaml
 from beets import dbcore
+from beets.dbcore import types
 from beets.library import Library, Item, parse_query_string
 from beets.ui import Subcommand, decargs
 from confuse import Subview
@@ -35,6 +36,8 @@ class XtractorCommand(Subcommand):
     lib = None
     query = None
     parser = None
+
+    items_to_analyse = None
 
     cfg_auto = False
     cfg_dry_run = False
@@ -58,7 +61,7 @@ class XtractorCommand(Subcommand):
         self.cfg_quiet = cfg.get("quiet")
         self.cfg_items_per_run = cfg.get("items_per_run")
 
-        self.parser = OptionParser(usage='%prog [options] [QUERY...]')
+        self.parser = OptionParser(usage='beet xtractor [options] [QUERY...]')
 
         self.parser.add_option(
             '-d', '--dry-run',
@@ -133,68 +136,56 @@ class XtractorCommand(Subcommand):
         self.xtract()
 
     def xtract(self):
-        # Parse the incoming query
-        parsed_query, parsed_sort = parse_query_string(" ".join(self.query), Item)
-        combined_query = parsed_query
-
-        # Add unprocessed items query = "bpm:0 , gender::^$"
-        if not self.cfg_force:
-            # Set up the query for unprocessed items
-            unprocessed_items_query = dbcore.query.OrQuery(
-                [
-                    # LOW
-                    # dbcore.query.NoneQuery(u'average_loudness', fast=False),
-                    dbcore.query.MatchQuery(u'average_loudness', None, fast=False),
-                    dbcore.query.NumericQuery(u'bpm', u'0'),
-                    dbcore.query.MatchQuery(u'danceability', None, fast=False),
-                    dbcore.query.MatchQuery(u'beats_count', None, fast=False),
-
-                    # HIGH
-                    dbcore.query.MatchQuery(u'danceable', None, fast=False),
-                    dbcore.query.MatchQuery(u'gender', None, fast=False),
-                    dbcore.query.MatchQuery(u'genre_rosamerica', None, fast=False),
-                    dbcore.query.MatchQuery(u'voice_instrumental', None, fast=False),
-
-                    dbcore.query.MatchQuery(u'mood_acoustic', None, fast=False),
-                    dbcore.query.MatchQuery(u'mood_aggressive', None, fast=False),
-                    dbcore.query.MatchQuery(u'mood_electronic', None, fast=False),
-                    dbcore.query.MatchQuery(u'mood_happy', None, fast=False),
-                    dbcore.query.MatchQuery(u'mood_party', None, fast=False),
-                    dbcore.query.MatchQuery(u'mood_relaxed', None, fast=False),
-                    dbcore.query.MatchQuery(u'mood_sad', None, fast=False),
-                ]
-            )
-            combined_query = dbcore.query.AndQuery([parsed_query, unprocessed_items_query])
-
-        log.debug("Combined query: {}".format(combined_query))
-
-        # Get the library items
-        library_items = self.lib.items(combined_query, parsed_sort)
-        if len(library_items) == 0:
-            self._say("No items to process")
-            return
+        self.find_items_to_analyse()
+        self._say("Number of items to be processed: {}".format(len(self.items_to_analyse)))
 
         # Count only and exit
         if self.cfg_count_only:
-            self._say("Number of items to be processed: {}".format(len(library_items)))
             return
 
         # Limit the number of items per run (0 means no limit)
-        items = []
-        for item in library_items:
-            items.append(item)
-            if self.cfg_items_per_run != 0 and len(items) >= self.cfg_items_per_run:
-                break
+        if self.cfg_items_per_run != 0:
+            self.items_to_analyse = self.items_to_analyse[:self.cfg_items_per_run]
+        self._say("Number of items selected: {}".format(len(self.items_to_analyse)))
 
-        self._say("Number of items selected: {}".format(len(items)))
-        self._execute_on_each_items(items, self._run_full_analysis)
+        # Run tasks on selected items
+        self._execute_on_each_items(self.items_to_analyse, self.run_full_analysis)
 
         # Delete profiles (if config wants)
         if self.config["keep_profiles"].exists() and not self.config["keep_profiles"].get():
             os.unlink(self._get_extractor_profile_path("low"))
             os.unlink(self._get_extractor_profile_path("high"))
 
-    def _run_full_analysis(self, item):
+    def find_items_to_analyse(self):
+        # Parse the incoming query
+        parsed_query, parsed_sort = parse_query_string(" ".join(self.query), Item)
+        combined_query = parsed_query
+
+        # Add unprocessed items query
+        if not self.cfg_force:
+            # Set up the query for unprocessed items
+            subqueries = []
+            target_maps = ["low_level_targets", "high_level_targets"]
+            for map_key in target_maps:
+                target_map = self.config[map_key]
+                for fld in target_map:
+                    if target_map[fld]["required"].exists() and target_map[fld]["required"].get(bool):
+                        fast = fld in Item._fields
+                        query_item = dbcore.query.MatchQuery(fld, None, fast=fast)
+                        subqueries.append(query_item)
+
+            unprocessed_items_query = dbcore.query.OrQuery(subqueries)
+            combined_query = dbcore.query.AndQuery([parsed_query, unprocessed_items_query])
+
+        log.debug("Combined query: {}".format(combined_query))
+
+        # Get the library items
+        self.items_to_analyse = self.lib.items(combined_query, parsed_sort)
+        if len(self.items_to_analyse) == 0:
+            self._say("No items to process")
+            return
+
+    def run_full_analysis(self, item):
         self._run_analysis_low_level(item)
         self._run_analysis_high_level(item)
         self._run_write_to_item(item)
@@ -235,11 +226,9 @@ class XtractorCommand(Subcommand):
         try:
             target_map = self.config["high_level_targets"]
             audiodata = bpmHelper.extract_from_output(output_path, target_map)
+            log.debug("Audiodata(High): {}".format(audiodata))
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
-            return
-        except KeyError as e:
-            self._say("Attribute not present: {0}".format(e))
             return
 
         if not self.cfg_dry_run:
@@ -270,12 +259,9 @@ class XtractorCommand(Subcommand):
         try:
             target_map = self.config["low_level_targets"]
             audiodata = bpmHelper.extract_from_output(output_path, target_map)
-
+            log.debug("Audiodata(Low): {}".format(audiodata))
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
-            return
-        except AttributeError as e:
-            self._say("Attribute not present: {0}".format(e))
             return
 
         if not self.cfg_dry_run:

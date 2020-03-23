@@ -4,15 +4,19 @@ write: yes
 threads: 1
 force: no
 quiet: no
+items_per_run: 0
+keep_output: no
+keep_profiles: no
 low_level_targets:
-    average_loudness:
-        path: "lowlevel.average_loudness"
-        type: float
-    bpm:
-        path: "rhythm.bpm"
-        type: integer
-    danceability:
-        path: "rhythm.danceability"
+  average_loudness:
+    path: "lowlevel.average_loudness"
+    type: float
+  bpm:
+    path: "rhythm.bpm"
+    type: integer
+    required: yes
+  danceability:
+    path: "rhythm.danceability"
         type: float
     beats_count:
         path: "rhythm.beats_count"
@@ -21,9 +25,11 @@ high_level_targets:
     danceable:
         path: "highlevel.danceability.all.danceable"
         type: float
+        required: yes
     gender:
         path: "highlevel.gender.value"
         type: string
+        required: yes
     is_male:
         path: "highlevel.gender.all.male"
         type: float
@@ -33,9 +39,11 @@ high_level_targets:
     genre_rosamerica:
         path: "highlevel.genre_rosamerica.value"
         type: string
+        required: yes
     voice_instrumental:
         path: "highlevel.voice_instrumental.value"
         type: string
+        required: yes
     is_voice:
         path: "highlevel.voice_instrumental.all.voice"
         type: float
@@ -45,21 +53,51 @@ high_level_targets:
     mood_acoustic:
         path: "highlevel.mood_acoustic.all.acoustic"
         type: float
+        required: yes
     mood_aggressive:
         path: "highlevel.mood_aggressive.all.aggressive"
         type: float
+        required: yes
     mood_electronic:
         path: "highlevel.mood_electronic.all.electronic"
         type: float
+        required: yes
     mood_happy:
         path: "highlevel.mood_happy.all.happy"
         type: float
+        required: yes
     mood_party:
-        path: "highlevel.mood_party.all.party"
-        type: float
+      path: "highlevel.mood_party.all.party"
+      type: float
+      required: yes
     mood_relaxed:
-        path: "highlevel.mood_relaxed.all.relaxed"
-        type: float
+      path: "highlevel.mood_relaxed.all.relaxed"
+      type: float
+      required: yes
     mood_sad:
-        path: "highlevel.mood_sad.all.sad"
-        type: float
+      path: "highlevel.mood_sad.all.sad"
+      type: float
+      required: yes
+low_level_extractor: /usr/lib/extractors/beta5/essentia_streaming_extractor_music
+high_level_extractor: /usr/lib/extractors/beta5/essentia_streaming_extractor_music_svm
+low_level_profile:
+  outputFormat: json
+  outputFrames: 0
+high_level_profile:
+  outputFormat: json
+  highlevel:
+    compute: 1
+    svm_models:
+      - /usr/lib/extractors/svm_models_beta5/danceability.history
+      - /usr/lib/extractors/svm_models_beta5/gender.history
+      - /usr/lib/extractors/svm_models_beta5/genre_rosamerica.history
+      - /usr/lib/extractors/svm_models_beta5/mood_acoustic.history
+      - /usr/lib/extractors/svm_models_beta5/mood_aggressive.history
+      - /usr/lib/extractors/svm_models_beta5/mood_electronic.history
+      - /usr/lib/extractors/svm_models_beta5/mood_happy.history
+      - /usr/lib/extractors/svm_models_beta5/mood_party.history
+      - /usr/lib/extractors/svm_models_beta5/mood_relaxed.history
+      - /usr/lib/extractors/svm_models_beta5/mood_sad.history
+      - /usr/lib/extractors/svm_models_beta5/voice_instrumental.history
+chromaprint:
+  compute: 0
