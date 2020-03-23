@@ -17,67 +17,67 @@ low_level_targets:
     required: yes
   danceability:
     path: "rhythm.danceability"
-        type: float
-    beats_count:
-        path: "rhythm.beats_count"
-        type: integer
+    type: float
+  beats_count:
+    path: "rhythm.beats_count"
+    type: integer
 high_level_targets:
-    danceable:
-        path: "highlevel.danceability.all.danceable"
-        type: float
-        required: yes
-    gender:
-        path: "highlevel.gender.value"
-        type: string
-        required: yes
-    is_male:
-        path: "highlevel.gender.all.male"
-        type: float
-    is_female:
-        path: "highlevel.gender.all.female"
-        type: float
-    genre_rosamerica:
-        path: "highlevel.genre_rosamerica.value"
-        type: string
-        required: yes
-    voice_instrumental:
-        path: "highlevel.voice_instrumental.value"
-        type: string
-        required: yes
-    is_voice:
-        path: "highlevel.voice_instrumental.all.voice"
-        type: float
-    is_instrumental:
-        path: "highlevel.voice_instrumental.all.instrumental"
-        type: float
-    mood_acoustic:
-        path: "highlevel.mood_acoustic.all.acoustic"
-        type: float
-        required: yes
-    mood_aggressive:
-        path: "highlevel.mood_aggressive.all.aggressive"
-        type: float
-        required: yes
-    mood_electronic:
-        path: "highlevel.mood_electronic.all.electronic"
-        type: float
-        required: yes
-    mood_happy:
-        path: "highlevel.mood_happy.all.happy"
-        type: float
-        required: yes
-    mood_party:
-      path: "highlevel.mood_party.all.party"
-      type: float
-      required: yes
-    mood_relaxed:
-      path: "highlevel.mood_relaxed.all.relaxed"
-      type: float
-      required: yes
-    mood_sad:
-      path: "highlevel.mood_sad.all.sad"
-      type: float
-      required: yes
+  danceable:
+    path: "highlevel.danceability.all.danceable"
+    type: float
+    required: yes
+  gender:
+    path: "highlevel.gender.value"
+    type: string
+    required: yes
+  is_male:
+    path: "highlevel.gender.all.male"
+    type: float
+  is_female:
+    path: "highlevel.gender.all.female"
+    type: float
+  genre_rosamerica:
+    path: "highlevel.genre_rosamerica.value"
+    type: string
+    required: yes
+  voice_instrumental:
+    path: "highlevel.voice_instrumental.value"
+    type: string
+    required: yes
+  is_voice:
+    path: "highlevel.voice_instrumental.all.voice"
+    type: float
+  is_instrumental:
+    path: "highlevel.voice_instrumental.all.instrumental"
+    type: float
+  mood_acoustic:
+    path: "highlevel.mood_acoustic.all.acoustic"
+    type: float
+    required: yes
+  mood_aggressive:
+    path: "highlevel.mood_aggressive.all.aggressive"
+    type: float
+    required: yes
+  mood_electronic:
+    path: "highlevel.mood_electronic.all.electronic"
+    type: float
+    required: yes
+  mood_happy:
+    path: "highlevel.mood_happy.all.happy"
+    type: float
+    required: yes
+  mood_party:
+    path: "highlevel.mood_party.all.party"
+    type: float
+    required: yes
+  mood_relaxed:
+    path: "highlevel.mood_relaxed.all.relaxed"
+    type: float
+    required: yes
+  mood_sad:
+    path: "highlevel.mood_sad.all.sad"
+    type: float
+    required: yes
 low_level_extractor: /usr/lib/extractors/beta5/essentia_streaming_extractor_music
 high_level_extractor: /usr/lib/extractors/beta5/essentia_streaming_extractor_music_svm
 low_level_profile:
