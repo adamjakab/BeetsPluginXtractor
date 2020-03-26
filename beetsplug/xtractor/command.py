@@ -3,6 +3,7 @@
 #  Author: Adam Jakab <adam at jakab dot pro>
 #  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
+
 import hashlib
 import json
 import logging
@@ -14,12 +15,11 @@ from subprocess import Popen, PIPE
 
 import yaml
 from beets import dbcore
-from beets.dbcore import types
 from beets.library import Library, Item, parse_query_string
 from beets.ui import Subcommand, decargs
 from confuse import Subview
 
-from beetsplug.xtractor import helper as bpmHelper
+from beetsplug.xtractor import helper
 
 # Module methods
 log = logging.getLogger('beets.xtractor')
@@ -225,7 +225,7 @@ class XtractorCommand(Subcommand):
 
         try:
             target_map = self.config["high_level_targets"]
-            audiodata = bpmHelper.extract_from_output(output_path, target_map)
+            audiodata = helper.extract_from_output(output_path, target_map)
             log.debug("Audiodata(High): {}".format(audiodata))
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
@@ -258,7 +258,7 @@ class XtractorCommand(Subcommand):
 
         try:
             target_map = self.config["low_level_targets"]
-            audiodata = bpmHelper.extract_from_output(output_path, target_map)
+            audiodata = helper.extract_from_output(output_path, target_map)
             log.debug("Audiodata(Low): {}".format(audiodata))
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
@@ -286,6 +286,9 @@ class XtractorCommand(Subcommand):
         log.debug("The process exited with code: {0}".format(proc.returncode))
         log.debug("Process stdout: {0}".format(stdout.decode()))
         log.debug("Process stderr: {0}".format(stderr.decode()))
+
+        # Make sure file is encoded correctly (sometimes media files have funky tags)
+        helper.asciify_file_content(output_path)
 
     def _execute_on_each_items(self, items, func):
         total = len(items)

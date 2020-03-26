@@ -7,38 +7,7 @@
 import json
 import os
 
-from confuse import Subview
-
-_module_path = os.path.dirname(__file__)
-
-"""Checklist from Acousticbrainz plugin: 
-ITEM
-bpm                         OK
-initial_key                 X ???
-
-ATTRIBUTE:
-average_loudness            OK
-beets_count                 OK (extra)
-chords_changes_rate         X
-chords_key                  X
-chords_number_rate          X
-chords_scale                X
-danceable                   OK
-danceability                OK (extra)
-gender                      OK (!!!)
-genre_rosamerica            OK
-key_strength                X
-mood_acoustic               OK
-mood_aggressive             OK
-mood_electronic             OK
-mood_happy                  OK
-mood_party                  OK
-mood_relaxed                OK
-mood_sad                    OK
-rhythm                      X
-tonal                       X
-voice_instrumental          OK
-"""
+from beets.util.confit import Subview
 
 
 def extract_from_output(output_path, target_map: Subview):
@@ -81,3 +50,14 @@ def extract_value_from_audiodata(audiodata, target_map_item: Subview):
         value = audiodata
 
     return value
+
+
+def asciify_file_content(file_path):
+    if os.path.isfile(file_path):
+        with open(file_path, 'r', encoding="utf-8") as content_file:
+            content_orig = content_file.read()
+
+        content_enc = content_orig.encode('ascii', 'ignore').decode('ascii')
+        if content_orig != content_enc:
+            with open(file_path, 'w', encoding="ascii") as content_file:
+                content_file.write(content_enc)
