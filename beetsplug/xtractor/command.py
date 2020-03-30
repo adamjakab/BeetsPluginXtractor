@@ -14,8 +14,8 @@ import yaml
 from beets import dbcore
 from beets.library import Library, Item, parse_query_string
 from beets.ui import Subcommand, decargs
+from beets.util.confit import Subview
 from beetsplug.xtractor import helper
-from confuse import Subview
 
 
 class XtractorCommand(Subcommand):
