@@ -1,7 +1,5 @@
 #  Copyright: Copyright (c) 2020., Adam Jakab
-#
 #  Author: Adam Jakab <adam at jakab dot pro>
-#  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
 
 import hashlib
@@ -16,9 +14,8 @@ import yaml
 from beets import dbcore
 from beets.library import Library, Item, parse_query_string
 from beets.ui import Subcommand, decargs
-from confuse import Subview
-
 from beetsplug.xtractor import helper
+from confuse import Subview
 
 
 class XtractorCommand(Subcommand):
