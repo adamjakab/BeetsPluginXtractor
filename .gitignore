@@ -2,7 +2,6 @@
 tmp/
 coverage/
 BEETSDIR/*
-!BEETSDIR/config.yaml
 
 
 ### Python template
