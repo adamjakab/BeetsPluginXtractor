@@ -16,7 +16,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 plg_ns = {}
-about_path = convert_path('beetsplug/autofix/about.py')
+about_path = convert_path('beetsplug/xtractor/about.py')
 with open(about_path) as about_file:
     exec(about_file.read(), plg_ns)
 

@@ -79,8 +79,8 @@ high_level_targets:
     path: "highlevel.mood_sad.all.sad"
     type: float
     required: yes
-low_level_extractor: /usr/lib/extractors/beta5/essentia_streaming_extractor_music
-high_level_extractor: /usr/lib/extractors/beta5/essentia_streaming_extractor_music_svm
+low_level_extractor: /your/path/to/streaming_extractor_music
+high_level_extractor: /your/path/to/streaming_extractor_music_svm
 low_level_profile:
   outputFormat: json
   outputFrames: 0
@@ -89,16 +89,16 @@ high_level_profile:
   highlevel:
     compute: 1
     svm_models:
-      - /usr/lib/extractors/svm_models_beta5/danceability.history
-      - /usr/lib/extractors/svm_models_beta5/gender.history
-      - /usr/lib/extractors/svm_models_beta5/genre_rosamerica.history
-      - /usr/lib/extractors/svm_models_beta5/mood_acoustic.history
-      - /usr/lib/extractors/svm_models_beta5/mood_aggressive.history
-      - /usr/lib/extractors/svm_models_beta5/mood_electronic.history
-      - /usr/lib/extractors/svm_models_beta5/mood_happy.history
-      - /usr/lib/extractors/svm_models_beta5/mood_party.history
-      - /usr/lib/extractors/svm_models_beta5/mood_relaxed.history
-      - /usr/lib/extractors/svm_models_beta5/mood_sad.history
-      - /usr/lib/extractors/svm_models_beta5/voice_instrumental.history
+      - /your/path/to/danceability.history
+      - /your/path/to/gender.history
+      - /your/path/to/genre_rosamerica.history
+      - /your/path/to/mood_acoustic.history
+      - /your/path/to/mood_aggressive.history
+      - /your/path/to/mood_electronic.history
+      - /your/path/to/mood_happy.history
+      - /your/path/to/mood_party.history
+      - /your/path/to/mood_relaxed.history
+      - /your/path/to/mood_sad.history
+      - /your/path/to/voice_instrumental.history
 chromaprint:
   compute: 0

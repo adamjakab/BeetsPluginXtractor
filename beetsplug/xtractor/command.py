@@ -57,7 +57,7 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-d', '--dry-run',
             action='store_true', dest='dryrun', default=self.cfg_dry_run,
-            help=u'[default: {}] display the bpm values but do not update the '
+            help=u'[default: {}] only show what would be done'
                  u'library items'.format(
                 self.cfg_dry_run)
         )
@@ -65,7 +65,8 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-w', '--write',
             action='store_true', dest='write', default=self.cfg_write,
-            help=u'[default: {}] write the bpm values to the media files'.format(
+            help=u'[default: {}] write the extracted values (bpm) to the media '
+                 u'files'.format(
                 self.cfg_write)
         )
 
