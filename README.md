@@ -30,7 +30,7 @@ You will also need the two binary extractors from the [Essentia project](#credit
 - streaming_extractor_music
 - streaming_extractor_music_svm
 
-Unfortunately, only the first extractor is readily available for download whilst to have the second one you will need to compile it yourself. The [official installation documentation](https://essentia.upf.edu/installing.html) is somewhat complex but with some cross searching on internet you will make it. If you are stuck you can use the [Issue tracker](https://github.com/adamjakab/BeetsPluginXtractor/issues). Make sure you compile with Gaia support (`--with-gaia`) otherwise your second `streaming_extractor_music_svm` will not be built.
+Unfortunately, only the first extractor is readily available for download whilst to have the second one you will need to compile it yourself. The [official installation documentation](https://essentia.upf.edu/installing.html#compiling-essentia-from-source) is somewhat complex but with some cross searching on internet you will make it. If you are stuck you can use the [Issue tracker](https://github.com/adamjakab/BeetsPluginXtractor/issues). Make sure you compile with Gaia support (`--with-gaia`) otherwise your second `streaming_extractor_music_svm` will not be built.
 
 ### Download the SVM models
 The second extractor uses prebuilt trained models for prediction. You need to download these from here: [SVM Models](https://essentia.upf.edu/svm_models/) I suggest that you download the more recent beta5 version. This means that your binaries must match this version. Put the downloaded models in any folder from which they can be accessed.
