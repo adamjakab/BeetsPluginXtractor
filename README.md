@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/adamjakab/BeetsPluginXtractor.svg?branch=master)](https://travis-ci.org/adamjakab/BeetsPluginXtractor)
-[![Coverage Status](https://coveralls.io/repos/github/adamjakab/BeetsPluginXtractor/badge.svg?branch=master)](https://coveralls.io/github/adamjakab/BeetsPluginXtractor?branch=master)
+[![Build Status](https://travis-ci.org/adamjakab/BeetsPluginXtractor.svg?branch=devel)](https://travis-ci.org/adamjakab/BeetsPluginXtractor)
+[![Coverage Status](https://coveralls.io/repos/github/adamjakab/BeetsPluginXtractor/badge.svg?branch=devel)](https://coveralls.io/github/adamjakab/BeetsPluginXtractor?branch=devel)
 [![PyPi](https://img.shields.io/pypi/v/beets-xtractor.svg)](https://pypi.org/project/beets-xtractor/)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/beets-xtractor.svg)](https://pypi.org/project/beets-xtractor/)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.txt)
