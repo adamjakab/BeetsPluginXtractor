@@ -4,14 +4,25 @@
 #  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
 
+import logging
 import json
 import os
 
 from beets.util.confit import Subview
 
+# Get values as: plg_ns['__PLUGIN_NAME__']
+plg_ns = {}
+about_path = os.path.join(os.path.dirname(__file__), u'about.py')
+with open(about_path) as about_file:
+    exec(about_file.read(), plg_ns)
+
+__logger__ = logging.getLogger(
+    'beets.{plg}'.format(plg=plg_ns['__PLUGIN_NAME__']))
+
 
 def extract_from_output(output_path, target_map: Subview):
-    """extracts data from the low level json file as mapped out in the `low_level_targets` configuration key
+    """extracts data from the low level json file as mapped out in the
+    `low_level_targets` configuration key
     """
     data = {}
 
@@ -61,3 +72,10 @@ def asciify_file_content(file_path):
         if content_orig != content_enc:
             with open(file_path, 'w', encoding="ascii") as content_file:
                 content_file.write(content_enc)
+
+
+def say(msg, log_only=True, is_error=False):
+    _level = logging.DEBUG
+    _level = _level if log_only else logging.INFO
+    _level = _level if not is_error else logging.ERROR
+    __logger__.log(level=_level, msg=msg)

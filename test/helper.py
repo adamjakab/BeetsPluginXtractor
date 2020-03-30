@@ -1,11 +1,7 @@
 #  Copyright: Copyright (c) 2020., Adam Jakab
-#
 #  Author: Adam Jakab <adam at jakab dot pro>
-#  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
-#
-# References: https://docs.python.org/3/library/unittest.html
-#
+
 import os
 import shutil
 import sys
@@ -30,13 +26,16 @@ from beets.util.confit import Subview, Dumper
 from six import StringIO
 
 from beetsplug import xtractor
+from beetsplug.xtractor import helper
 
 logging.getLogger('beets').propagate = True
 
 # Values
-PLUGIN_NAME = 'xtractor'
-PLUGIN_SHORT_NAME = 'xt'
-PLUGIN_SHORT_DESCRIPTION = 'get more out of your music...'
+PLUGIN_NAME = helper.plg_ns['__PLUGIN_NAME__']
+PLUGIN_SHORT_DESCRIPTION = helper.plg_ns['__PLUGIN_SHORT_DESCRIPTION__']
+PLUGIN_VERSION = helper.plg_ns['__version__']
+PACKAGE_NAME = helper.plg_ns['__PACKAGE_NAME__']
+PACKAGE_TITLE = helper.plg_ns['__PACKAGE_TITLE__']
 
 
 class LogCapture(logging.Handler):

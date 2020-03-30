@@ -2,10 +2,10 @@
 # USAGE: export environment variable BEETSDIR=/path/to/BEETSDIR
 # then: `beets config -p` should list this file
 
-directory: /Volumes/J/Music/
-library: ~/.config/beets/real_library.db
-#directory: Music
-#library: library.db
+#directory: /Volumes/J/Music/
+#library: ~/.config/beets/real_library.db
+directory: Music
+library: library.db
 
 asciify_paths: yes
 id3v23: yes
