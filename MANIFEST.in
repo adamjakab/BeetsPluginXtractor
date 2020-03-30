@@ -1,5 +1,4 @@
 prune test
 include LICENSE.txt
 include README.md
-include beetsplug/xtractor/version.py
 include beetsplug/xtractor/config_default.yml

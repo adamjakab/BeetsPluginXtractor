@@ -1,12 +1,9 @@
 #  Copyright: Copyright (c) 2020., Adam Jakab
-#
 #  Author: Adam Jakab <adam at jakab dot pro>
-#  Created: 3/13/20, 12:17 AM
 #  License: See LICENSE.txt
 
 import hashlib
 import json
-import logging
 import os
 import tempfile
 from concurrent import futures
@@ -17,17 +14,8 @@ import yaml
 from beets import dbcore
 from beets.library import Library, Item, parse_query_string
 from beets.ui import Subcommand, decargs
-from confuse import Subview
-
+from beets.util.confit import Subview
 from beetsplug.xtractor import helper
-
-# Module methods
-log = logging.getLogger('beets.xtractor')
-
-# The plugin
-__PLUGIN_NAME__ = u'xtractor'
-__PLUGIN_SHORT_NAME__ = u'xt'
-__PLUGIN_SHORT_DESCRIPTION__ = u'get more out of your music...'
 
 
 class XtractorCommand(Subcommand):
@@ -61,19 +49,24 @@ class XtractorCommand(Subcommand):
         self.cfg_quiet = cfg.get("quiet")
         self.cfg_items_per_run = cfg.get("items_per_run")
 
-        self.parser = OptionParser(usage='beet xtractor [options] [QUERY...]')
+        self.parser = OptionParser(
+            usage='beet {plg} [options] [QUERY...]'.format(
+                plg=helper.plg_ns['__PLUGIN_NAME__']
+            ))
 
         self.parser.add_option(
             '-d', '--dry-run',
             action='store_true', dest='dryrun', default=self.cfg_dry_run,
-            help=u'[default: {}] display the bpm values but do not update the library items'.format(
+            help=u'[default: {}] only show what would be done'
+                 u'library items'.format(
                 self.cfg_dry_run)
         )
 
         self.parser.add_option(
             '-w', '--write',
             action='store_true', dest='write', default=self.cfg_write,
-            help=u'[default: {}] write the bpm values to the media files'.format(
+            help=u'[default: {}] write the extracted values (bpm) to the media '
+                 u'files'.format(
                 self.cfg_write)
         )
 
@@ -112,9 +105,10 @@ class XtractorCommand(Subcommand):
         # Keep this at the end
         super(XtractorCommand, self).__init__(
             parser=self.parser,
-            name=__PLUGIN_NAME__,
-            help=__PLUGIN_SHORT_DESCRIPTION__,
-            aliases=[__PLUGIN_SHORT_NAME__]
+            name=helper.plg_ns['__PLUGIN_NAME__'],
+            aliases=[helper.plg_ns['__PLUGIN_ALIAS__']] if
+            helper.plg_ns['__PLUGIN_ALIAS__'] else [],
+            help=helper.plg_ns['__PLUGIN_SHORT_DESCRIPTION__']
         )
 
     def func(self, lib: Library, options, arguments):
@@ -177,7 +171,7 @@ class XtractorCommand(Subcommand):
             unprocessed_items_query = dbcore.query.OrQuery(subqueries)
             combined_query = dbcore.query.AndQuery([parsed_query, unprocessed_items_query])
 
-        log.debug("Combined query: {}".format(combined_query))
+        self._say("Combined query: {}".format(combined_query))
 
         # Get the library items
         self.items_to_analyse = self.lib.items(combined_query, parsed_sort)
@@ -226,7 +220,7 @@ class XtractorCommand(Subcommand):
         try:
             target_map = self.config["high_level_targets"]
             audiodata = helper.extract_from_output(output_path, target_map)
-            log.debug("Audiodata(High): {}".format(audiodata))
+            self._say("Audiodata(High): {}".format(audiodata))
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
             return
@@ -259,7 +253,7 @@ class XtractorCommand(Subcommand):
         try:
             target_map = self.config["low_level_targets"]
             audiodata = helper.extract_from_output(output_path, target_map)
-            log.debug("Audiodata(Low): {}".format(audiodata))
+            self._say("Audiodata(Low): {}".format(audiodata))
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
             return
@@ -272,22 +266,24 @@ class XtractorCommand(Subcommand):
 
     def _run_essentia_extractor(self, extractor_path, input_path, output_path, profile_path):
         if os.path.isfile(output_path):
-            log.debug("Output exists: {0}".format(output_path))
+            self._say("Output exists: {0}".format(output_path))
             return
 
-        log.debug("Extractor: {0}".format(extractor_path))
-        log.debug("Input: {0}".format(input_path))
-        log.debug("Output: {0}".format(output_path))
-        log.debug("Profile: {0}".format(profile_path))
+        self._say("Extractor: {0}".format(extractor_path))
+        self._say("Input: {0}".format(input_path))
+        self._say("Output: {0}".format(output_path))
+        self._say("Profile: {0}".format(profile_path))
 
-        proc = Popen([extractor_path, input_path, output_path, profile_path], stdout=PIPE, stderr=PIPE)
+        proc = Popen([extractor_path, input_path, output_path, profile_path],
+                     stdout=PIPE, stderr=PIPE)
         stdout, stderr = proc.communicate()
 
-        log.debug("The process exited with code: {0}".format(proc.returncode))
-        log.debug("Process stdout: {0}".format(stdout.decode()))
-        log.debug("Process stderr: {0}".format(stderr.decode()))
+        self._say("The process exited with code: {0}".format(proc.returncode))
+        self._say("Process stdout: {0}".format(stdout.decode()))
+        self._say("Process stderr: {0}".format(stderr.decode()))
 
-        # Make sure file is encoded correctly (sometimes media files have funky tags)
+        # Make sure file is encoded correctly (sometimes media files have
+        # funky tags)
         helper.asciify_file_content(output_path)
 
     def _execute_on_each_items(self, items, func):
@@ -328,7 +324,8 @@ class XtractorCommand(Subcommand):
 
             output_path = self.config["output_path"].as_filename()
         else:
-            output_path = os.path.join(tempfile.gettempdir(), __PLUGIN_NAME__)
+            output_path = os.path.join(tempfile.gettempdir(),
+                                       helper.plg_ns['__PLUGIN_NAME__'])
             if not os.path.isdir(output_path):
                 os.makedirs(output_path)
 
@@ -371,17 +368,18 @@ class XtractorCommand(Subcommand):
         extractor_path = self.config[extractor_key].as_filename()
 
         if not os.path.isfile(extractor_path):
-            raise FileNotFoundError("Extractor({}) is not found!".format(extractor_path))
+            raise FileNotFoundError("Extractor({}) is not found!".format(
+                extractor_path))
 
         return extractor_path
 
     def show_version_information(self):
-        from beetsplug.xtractor.version import __version__
-        self._say(
-            "Xtractor(beets-{0}) plugin for Beets: v{1}".format(__PLUGIN_NAME__, __version__))
+        self._say("{pt}({pn}) plugin for Beets: v{ver}".format(
+            pt=helper.plg_ns['__PACKAGE_TITLE__'],
+            pn=helper.plg_ns['__PACKAGE_NAME__'],
+            ver=helper.plg_ns['__version__']
+        ), log_only=False)
 
-    def _say(self, msg):
-        if not self.cfg_quiet:
-            log.info(msg)
-        else:
-            log.debug(msg)
+    @staticmethod
+    def _say(msg, log_only=True, is_error=False):
+        helper.say(msg, log_only, is_error)
