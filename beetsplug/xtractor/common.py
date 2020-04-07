@@ -5,7 +5,9 @@
 import json
 import logging
 import os
+from datetime import datetime
 
+import requests
 from beets.util.confit import Subview
 
 # Get values as: plg_ns['__PLUGIN_NAME__']
@@ -16,6 +18,57 @@ with open(about_path) as about_file:
 
 __logger__ = logging.getLogger(
     'beets.{plg}'.format(plg=plg_ns['__PLUGIN_NAME__']))
+
+AB_BASE = "https://acousticbrainz.org/api/v1/"
+
+
+def generate_mbid_list(registry, offset, max_records=25):
+    mbidlist = []
+    i = offset
+    while len(mbidlist) < max_records:
+        regitem = registry[i]
+        if regitem["mb_trackid"]:
+            ts = int(datetime.now().timestamp())
+            max_ts_diff = 24 * 60 * 60
+            if not regitem["ab_check"] or \
+                    ts - regitem["ab_check"] > max_ts_diff:
+                mbidlist.append(regitem["mb_trackid"])
+        i += 1
+        if i == len(registry):
+            break
+
+    return mbidlist, i
+
+
+def get_ab_check_data(registry, offset, max_records=25):
+    data = {}
+
+    mbidlist, new_offset = generate_mbid_list(registry, offset, max_records)
+    if not mbidlist:
+        return data, new_offset
+
+    url = "{}count?recording_ids={}".format(AB_BASE, ";".join(mbidlist))
+    try:
+        res = requests.get(url)
+    except requests.RequestException as e:
+        say(u'request error: {}'.format(e))
+        return data, new_offset
+
+    if res.status_code == 429:
+        say(u'Hit the limit. Slow down!')
+        return data, new_offset
+
+    if res.status_code != 200:
+        say(u'Bad response status code! URL={}'.format(url))
+        return data, new_offset
+
+    try:
+        data.update(res.json())
+    except ValueError:
+        say(u'Invalid Response')
+        return data, new_offset
+
+    return data, new_offset
 
 
 def extract_from_output(output_path, target_map: Subview):

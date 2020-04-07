@@ -1,21 +1,16 @@
 #  Copyright: Copyright (c) 2020., Adam Jakab
 #  Author: Adam Jakab <adam at jakab dot pro>
 #  License: See LICENSE.txt
-
-import hashlib
-import json
 import os
-import tempfile
-from concurrent import futures
+import pickle
+from datetime import datetime
 from optparse import OptionParser
-from subprocess import Popen, PIPE
 
-import yaml
 from beets import dbcore
-from beets.library import Library, Item, parse_query_string
+from beets.library import Library, Item
 from beets.ui import Subcommand, decargs
-from beets.util.confit import Subview
-from beetsplug.xtractor import helper
+from beets.util.confit import Subview, LazyConfig
+from beetsplug.xtractor import common
 
 
 class XtractorCommand(Subcommand):
@@ -25,7 +20,8 @@ class XtractorCommand(Subcommand):
     query = None
     parser = None
 
-    items_to_analyse = None
+    registry = []
+    max_pickle_life_hrs = 1
 
     cfg_auto = False
     cfg_dry_run = False
@@ -51,7 +47,7 @@ class XtractorCommand(Subcommand):
 
         self.parser = OptionParser(
             usage='beet {plg} [options] [QUERY...]'.format(
-                plg=helper.plg_ns['__PLUGIN_NAME__']
+                plg=common.plg_ns['__PLUGIN_NAME__']
             ))
 
         self.parser.add_option(
@@ -74,20 +70,25 @@ class XtractorCommand(Subcommand):
             '-t', '--threads',
             action='store', dest='threads', type='int',
             default=self.cfg_threads,
-            help=u'[default: {}] the number of threads to run in parallel'.format(
+            help=u'[default: {}] the number of threads to run in '
+                 u'parallel'.format(
                 self.cfg_threads)
         )
 
         self.parser.add_option(
             '-f', '--force',
             action='store_true', dest='force', default=self.cfg_force,
-            help=u'[default: {}] force analysis of items with non-zero bpm values'.format(self.cfg_force)
+            help=u'[default: {}] force analysis of items with non-zero bpm '
+                 u'values'.format(
+                self.cfg_force)
         )
 
         self.parser.add_option(
             '-c', '--count-only',
             action='store_true', dest='count_only', default=self.cfg_count_only,
-            help=u'[default: {}] Show the number of items to be processed'.format(self.cfg_count_only)
+            help=u'[default: {}] Show the number of items to be '
+                 u'processed'.format(
+                self.cfg_count_only)
         )
 
         self.parser.add_option(
@@ -105,10 +106,10 @@ class XtractorCommand(Subcommand):
         # Keep this at the end
         super(XtractorCommand, self).__init__(
             parser=self.parser,
-            name=helper.plg_ns['__PLUGIN_NAME__'],
-            aliases=[helper.plg_ns['__PLUGIN_ALIAS__']] if
-            helper.plg_ns['__PLUGIN_ALIAS__'] else [],
-            help=helper.plg_ns['__PLUGIN_SHORT_DESCRIPTION__']
+            name=common.plg_ns['__PLUGIN_NAME__'],
+            aliases=[common.plg_ns['__PLUGIN_ALIAS__']] if
+            common.plg_ns['__PLUGIN_ALIAS__'] else [],
+            help=common.plg_ns['__PLUGIN_SHORT_DESCRIPTION__']
         )
 
     def func(self, lib: Library, options, arguments):
@@ -130,256 +131,174 @@ class XtractorCommand(Subcommand):
         self.xtract()
 
     def xtract(self):
-        self.find_items_to_analyse()
-        self._say("Number of items to be processed: {}".format(len(self.items_to_analyse)))
+        self.setup_registry()
 
-        # Count only and exit
+        if len(self.registry) == 0:
+            self._say("No items in registry")
+            return
+
+        self._say("Number of items in registry: {}".
+                  format(len(self.registry)), log_only=False)
+
+        # # Count only and exit
         if self.cfg_count_only:
             return
 
-        # Limit the number of items per run (0 means no limit)
-        if self.cfg_items_per_run != 0:
-            self.items_to_analyse = self.items_to_analyse[:self.cfg_items_per_run]
-        self._say("Number of items selected: {}".format(len(self.items_to_analyse)))
+        self.update_registry_ab_counts()
+        self.update_registry_item_status()
 
-        # Run tasks on selected items
-        self._execute_on_each_items(self.items_to_analyse, self.run_full_analysis)
+        # update from ab - remove low and high level json files for processed
+        self.update_from_ab_server()
 
-        # Delete profiles (if config wants)
-        if self.config["keep_profiles"].exists() and not self.config["keep_profiles"].get():
-            os.unlink(self._get_extractor_profile_path("low"))
-            os.unlink(self._get_extractor_profile_path("high"))
+        # extract low level data
 
-    def find_items_to_analyse(self):
-        # Parse the incoming query
-        parsed_query, parsed_sort = parse_query_string(" ".join(self.query), Item)
-        combined_query = parsed_query
+        # push to ab
 
-        # Add unprocessed items query
-        if not self.cfg_force:
-            # Set up the query for unprocessed items
-            subqueries = []
-            target_maps = ["low_level_targets", "high_level_targets"]
-            for map_key in target_maps:
-                target_map = self.config[map_key]
-                for fld in target_map:
-                    if target_map[fld]["required"].exists() and target_map[fld]["required"].get(bool):
-                        fast = fld in Item._fields
-                        query_item = dbcore.query.MatchQuery(fld, None, fast=fast)
-                        subqueries.append(query_item)
+        # create high-level data if our push has been done more than 30
+        # minutes ago
 
-            unprocessed_items_query = dbcore.query.OrQuery(subqueries)
-            combined_query = dbcore.query.AndQuery([parsed_query, unprocessed_items_query])
+        # {'id': 1, 'mb_trackid': 'dc54022e-67f9-48e6-9855-c2785964ab1a',
+        # 'ab_count': 0, 'ab_check': None, 'needs_processing': False},
+        # self._say("REGISTRY: {}".format(self.registry))
 
-        self._say("Combined query: {}".format(combined_query))
+        # Done
+        self.store_registry()
 
-        # Get the library items
-        self.items_to_analyse = self.lib.items(combined_query, parsed_sort)
-        if len(self.items_to_analyse) == 0:
-            self._say("No items to process")
+    def update_from_ab_server(self):
+        processable = [item for item in self.registry if
+                       item["needs_processing"] and item["ab_count"] > 0]
+        if len(processable) == 0:
             return
 
-    def run_full_analysis(self, item):
-        self._run_analysis_low_level(item)
-        self._run_analysis_high_level(item)
-        self._run_write_to_item(item)
+    def update_registry_item_status(self):
+        for regitem in self.registry:
+            library_item: Item = self.get_item_by_itemid(regitem["id"])
+            if library_item:
+                regitem["needs_processing"] = \
+                    self.item_needs_processing(library_item)
 
-        # Delete output files (if config wants)
-        if self.config["keep_output"].exists() and not self.config["keep_output"].get():
-            output_path = self._get_output_path_for_item(item, suffix="low")
-            if os.path.isfile(output_path):
-                os.unlink(output_path)
-            output_path = self._get_output_path_for_item(item, suffix="high")
-            if os.path.isfile(output_path):
-                os.unlink(output_path)
+    def item_needs_processing(self, item: Item):
+        answer = False
 
-    def _run_write_to_item(self, item):
-        if not self.cfg_dry_run:
-            if self.cfg_write:
-                item.try_write()
+        target_maps = ["low_level_targets", "high_level_targets"]
 
-    def _run_analysis_high_level(self, item):
-        try:
-            extractor_path = self._get_extractor_path(level="high")
-            input_path = self._get_output_path_for_item(item, suffix="low")
-            output_path = self._get_output_path_for_item(item, suffix="high")
-            profile_path = self._get_extractor_profile_path(level="high")
-        except ValueError as e:
-            self._say("Value error: {0}".format(e))
-            return
-        except KeyError as e:
-            self._say("Configuration error: {0}".format(e))
-            return
-        except FileNotFoundError as e:
-            self._say("File not found error: {0}".format(e))
-            return
+        for map_key in target_maps:
+            if answer:
+                break
+            target_map = self.config[map_key]
+            for fld in target_map:
+                if target_map[fld]["required"].exists() \
+                        and target_map[fld]["required"].get(bool):
+                    if not item.get(fld):
+                        answer = True
+                        break
 
-        self._say("Running high-level analysis: {0}".format(input_path))
-        self._run_essentia_extractor(extractor_path, input_path, output_path, profile_path)
+        return answer
 
-        try:
-            target_map = self.config["high_level_targets"]
-            audiodata = helper.extract_from_output(output_path, target_map)
-            self._say("Audiodata(High): {}".format(audiodata))
-        except FileNotFoundError as e:
-            self._say("File not found: {0}".format(e))
-            return
+    def update_registry_ab_counts(self):
+        offset = 0
+        while offset is not None and offset < len(self.registry):
+            data, offset = common.get_ab_check_data(self.registry, offset)
+            if data:
+                for mbid in data.keys():
+                    regitem = self.get_registry_item('mb_trackid', mbid)
+                    if regitem:
+                        count = int(data[mbid]["count"])
+                        regitem.update({
+                            "ab_count": count,
+                            "ab_check": int(datetime.now().timestamp())
+                        })
 
-        if not self.cfg_dry_run:
-            for attr in audiodata.keys():
-                if audiodata.get(attr):
-                    setattr(item, attr, audiodata.get(attr))
-            item.store()
-
-    def _run_analysis_low_level(self, item):
-        try:
-            extractor_path = self._get_extractor_path(level="low")
-            input_path = self._get_input_path_for_item(item)
-            output_path = self._get_output_path_for_item(item, suffix="low")
-            profile_path = self._get_extractor_profile_path(level="low")
-        except ValueError as e:
-            self._say("Value error: {0}".format(e))
-            return
-        except KeyError as e:
-            self._say("Configuration error: {0}".format(e))
-            return
-        except FileNotFoundError as e:
-            self._say("File not found error: {0}".format(e))
+    def setup_registry(self):
+        self.restore_registry()
+        if self.registry:
+            self._say("Registry was restored from pickle jar.")
             return
 
-        self._say("Running low-level analysis: {0}".format(input_path))
-        self._run_essentia_extractor(extractor_path, input_path, output_path, profile_path)
+        # Select all in 'albumartist' order
+        query = dbcore.query.TrueQuery()
+        sort = dbcore.query.FixedFieldSort("albumartist", ascending=True)
+        items = self.lib.items(query, sort)
 
-        try:
-            target_map = self.config["low_level_targets"]
-            audiodata = helper.extract_from_output(output_path, target_map)
-            self._say("Audiodata(Low): {}".format(audiodata))
-        except FileNotFoundError as e:
-            self._say("File not found: {0}".format(e))
+        for item in items:
+            record = self.get_default_record()
+            record.update({
+                "id": item.get("id"),
+                "mb_trackid": item.get("mb_trackid"),
+            })
+            self.registry.append(record)
+
+    @staticmethod
+    def get_default_record():
+        return {
+            "id": None,
+            "mb_trackid": None,
+            "ab_count": 0,
+            "ab_check": None,
+            "needs_processing": False
+        }
+
+    def get_registry_item(self, fld, val):
+        answer = None
+
+        for regitem in self.registry:
+            if fld in regitem:
+                if regitem[fld] == val:
+                    answer = regitem
+                    break
+
+        return answer
+
+    def get_item_by_itemid(self, itemid):
+        answer = None
+
+        query = dbcore.query.NumericQuery('id', str(itemid))
+        items = self.lib.items(query)
+        if len(items) == 1:
+            answer = items.get()
+
+        return answer
+
+    def restore_registry(self):
+        self.registry = []
+        registry_storage_file = self.get_store_registry_file_path()
+        if not os.path.isfile(registry_storage_file):
+            self._say("No pickle jar was found.")
             return
 
-        if not self.cfg_dry_run:
-            for attr in audiodata.keys():
-                if audiodata.get(attr):
-                    setattr(item, attr, audiodata.get(attr))
-            item.store()
+        with open(registry_storage_file, 'rb') as fh:
+            jar = pickle.load(fh)
 
-    def _run_essentia_extractor(self, extractor_path, input_path, output_path, profile_path):
-        if os.path.isfile(output_path):
-            self._say("Output exists: {0}".format(output_path))
-            return
+        ts = int(datetime.now().timestamp())
+        max_ts_diff = self.max_pickle_life_hrs * 60 * 60
+        if "timestamp" in jar and ts - jar["timestamp"] <= max_ts_diff:
+            self.registry = jar["pickles"]
 
-        self._say("Extractor: {0}".format(extractor_path))
-        self._say("Input: {0}".format(input_path))
-        self._say("Output: {0}".format(output_path))
-        self._say("Profile: {0}".format(profile_path))
+    def store_registry(self):
+        registry_storage_file = self.get_store_registry_file_path()
 
-        proc = Popen([extractor_path, input_path, output_path, profile_path],
-                     stdout=PIPE, stderr=PIPE)
-        stdout, stderr = proc.communicate()
+        jar = {
+            "timestamp": int(datetime.now().timestamp()),
+            "pickles": self.registry
+        }
 
-        self._say("The process exited with code: {0}".format(proc.returncode))
-        self._say("Process stdout: {0}".format(stdout.decode()))
-        self._say("Process stderr: {0}".format(stderr.decode()))
+        with open(registry_storage_file, 'wb') as fh:
+            pickle.dump(jar, fh)
 
-        # Make sure file is encoded correctly (sometimes media files have
-        # funky tags)
-        helper.asciify_file_content(output_path)
-
-    def _execute_on_each_items(self, items, func):
-        total = len(items)
-        finished = 0
-        with futures.ThreadPoolExecutor(max_workers=self.cfg_threads) as e:
-            for _ in e.map(func, items):
-                finished += 1
-                # todo: show a progress bar (--progress-only option)
-
-    def _get_output_path_for_item(self, item: Item, suffix=""):
-        identifier = item.get("mb_trackid")
-        if not identifier:
-            input_path = self._get_input_path_for_item(item)
-            identifier = hashlib.md5(input_path.encode('utf-8')).hexdigest()
-
-        output_file = "{id}{sfx}{ext}".format(
-            id=identifier,
-            sfx=".{}".format(suffix) if suffix else "",
-            ext=".json"
-        )
-
-        return os.path.join(self._get_extraction_output_path(), output_file)
-
-    def _get_input_path_for_item(self, item: Item):
-        input_path = item.get("path").decode("utf-8")
-
-        if not os.path.isfile(input_path):
-            raise FileNotFoundError("Input file({}) not found!".format(input_path))
-
-        return input_path
-
-    def _get_extraction_output_path(self):
-        if self.config["output_path"].exists():
-            if not os.path.isdir(self.config["output_path"].as_filename()):
-                raise FileNotFoundError(
-                    "Output path({}) does not exist!".format(self.config["output_path"].as_filename()))
-
-            output_path = self.config["output_path"].as_filename()
-        else:
-            output_path = os.path.join(tempfile.gettempdir(),
-                                       helper.plg_ns['__PLUGIN_NAME__'])
-            if not os.path.isdir(output_path):
-                os.makedirs(output_path)
-
-        return output_path
-
-    def _get_extractor_profile_path(self, level):
-        if level not in ("low", "high"):
-            raise ValueError("Profile level must be either 'low' or 'high'. Given: {}".format(level))
-
-        profile_key = "{}_level_profile".format(level)
-        profile_filename = "{}.yml".format(profile_key)
-        profile_path = os.path.join(self._get_extraction_output_path(), profile_filename)
-
-        if not os.path.isfile(profile_path):
-            # Generate profile file
-            if not self.config[profile_key].exists():
-                raise KeyError("Key '{}' is not defined".format(profile_key))
-
-            profile_content = self.config[profile_key].flatten()
-            profile_content = json.loads(json.dumps(profile_content))
-            # Override outputFormat (we only hande json for now)
-            profile_content["outputFormat"] = "json"
-
-            f = open(profile_path, 'w+')
-            yaml.dump(profile_content, f, allow_unicode=True)
-
-            if not os.path.isfile(profile_path):
-                raise FileNotFoundError("Extractor profile({}) not created!".format(profile_path))
-
-        return profile_path
-
-    def _get_extractor_path(self, level):
-        if level not in ("low", "high"):
-            raise ValueError("Extractor level must be either 'low' or 'high'. Given: {}".format(level))
-
-        extractor_key = "{}_level_extractor".format(level)
-        if not self.config[extractor_key].exists():
-            raise KeyError("Key '{}' is not defined".format(extractor_key))
-
-        extractor_path = self.config[extractor_key].as_filename()
-
-        if not os.path.isfile(extractor_path):
-            raise FileNotFoundError("Extractor({}) is not found!".format(
-                extractor_path))
-
-        return extractor_path
+    @staticmethod
+    def get_store_registry_file_path():
+        config_dir = LazyConfig(u'beets').config_dir()
+        pickle_file = "{}-registry.pickle". \
+            format(common.plg_ns['__PLUGIN_NAME__'])
+        return os.path.join(config_dir, pickle_file)
 
     def show_version_information(self):
         self._say("{pt}({pn}) plugin for Beets: v{ver}".format(
-            pt=helper.plg_ns['__PACKAGE_TITLE__'],
-            pn=helper.plg_ns['__PACKAGE_NAME__'],
-            ver=helper.plg_ns['__version__']
+            pt=common.plg_ns['__PACKAGE_TITLE__'],
+            pn=common.plg_ns['__PACKAGE_NAME__'],
+            ver=common.plg_ns['__version__']
         ), log_only=False)
 
     @staticmethod
     def _say(msg, log_only=True, is_error=False):
-        helper.say(msg, log_only, is_error)
+        common.say(msg, log_only, is_error)

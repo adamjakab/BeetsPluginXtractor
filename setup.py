@@ -41,7 +41,7 @@ setup(
 
     install_requires=[
         'beets>=1.4.9',
-        'PyYAML'
+        'PyYAML', 'requests'
     ],
 
     tests_require=[
