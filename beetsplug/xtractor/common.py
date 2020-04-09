@@ -5,7 +5,7 @@
 import json
 import logging
 import os
-from datetime import datetime
+import time
 
 import requests
 from beets.util.confit import Subview
@@ -22,73 +22,159 @@ __logger__ = logging.getLogger(
 AB_BASE = "https://acousticbrainz.org/api/v1/"
 
 
-def generate_mbid_list(registry, offset, max_records=25):
-    mbidlist = []
-    i = offset
-    while len(mbidlist) < max_records:
-        regitem = registry[i]
-        if regitem["mb_trackid"]:
-            ts = int(datetime.now().timestamp())
-            max_ts_diff = 24 * 60 * 60
-            if not regitem["ab_check"] or \
-                    ts - regitem["ab_check"] > max_ts_diff:
-                mbidlist.append(regitem["mb_trackid"])
-        i += 1
-        if i == len(registry):
+def send_get_request_to_ab_server(url):
+    response = None
+    max_retries = 5
+    sleep_time = 3
+    retries = 0
+
+    say("Fetching url: {}".format(url))
+
+    while response is None:
+        retries += 1
+        say('AB Query Attempt(max:{}) #{}'.format(max_retries, retries))
+        if retries > max_retries:
+            say("Maximum({}) retries reached. Abandoning.".
+                format(max_retries), is_error=True)
             break
 
-    return mbidlist, i
+        try:
+            res = requests.get(url)
+        except requests.RequestException as e:
+            say(u'Request error: {}'.format(e))
+            break
+
+        if res.status_code != 200:
+            say(u'Bad response status code! URL={}'.format(url))
+            break
+
+        if res.status_code == 429:
+            say(u'Hit the limit. Sæeeping for {} seconds!'.format(sleep_time))
+            time.sleep(sleep_time)
+            continue
+
+        try:
+            response = res.json()
+            say("Fetch ok.")
+        except ValueError:
+            say(u'Invalid Response')
+            break
+
+    return response
 
 
-def get_ab_check_data(registry, offset, max_records=25):
-    data = {}
+def send_post_request_to_ab_server(url, data, headers):
+    response = None
+    max_retries = 5
+    sleep_time = 3
+    retries = 0
 
-    mbidlist, new_offset = generate_mbid_list(registry, offset, max_records)
-    if not mbidlist:
-        return data, new_offset
+    say("Posting to url: {}".format(url))
 
+    while response is None:
+        retries += 1
+        say('AB Post Attempt(max:{}) #{}'.format(max_retries, retries))
+        if retries > max_retries:
+            say("Maximum({}) retries reached. Abandoning.".
+                format(max_retries), is_error=True)
+            break
+
+        try:
+            res = requests.post(url, json=data, headers=headers)
+        except requests.RequestException as e:
+            say(u'Request error: {}'.format(e))
+            break
+
+        if res.status_code == 429:
+            say(u'Hit the limit. Sæeeping for {} seconds!'.format(sleep_time))
+            time.sleep(sleep_time)
+            continue
+
+        if res.status_code != 200:
+            say(u'Bad request! Code: {}'.format(res.status_code))
+            say(u'Response: {}'.format(res.json()))
+            break
+
+        if res.status_code == 200:
+            say(u'Post ok. {}'.format(str(res.json())))
+            response = True
+            break
+
+    response = False if response is None else response
+
+    return response
+
+
+def submit_low_level_data_to_ab(regitem, json_path, extractor_sha):
+    mbid = regitem['mb_trackid']
+    headers = {'Content-Type': 'application/json'}
+    url = "{}{}/low-level".format(AB_BASE, mbid)
+
+    if os.path.isfile(json_path):
+        with open(json_path, "r") as json_file:
+            audiodata = json.load(json_file)
+    else:
+        raise FileNotFoundError("File({}) not found!".format(json_path))
+
+    # Add extractor sha to audiodata
+    audiodata['metadata']['version']['essentia_build_sha'] = \
+        extractor_sha
+
+    result = send_post_request_to_ab_server(url, audiodata, headers)
+    say(u'Post Result: {}'.format(result))
+
+    return result
+
+
+def get_ab_low_high_level_data(processables, level):
+    if level not in ["low-level", "high-level"]:
+        raise ValueError("Invalid level name!")
+
+    mbidlist = [regitem["mb_trackid"]
+                for regitem in processables if regitem["mb_trackid"]]
+    url = "{}{}?recording_ids={}".format(AB_BASE, level, ";".join(mbidlist))
+    data = send_get_request_to_ab_server(url)
+
+    return data
+
+
+def get_ab_check_count_data(processables):
+    mbidlist = [regitem["mb_trackid"]
+                for regitem in processables if regitem["mb_trackid"]]
     url = "{}count?recording_ids={}".format(AB_BASE, ";".join(mbidlist))
-    try:
-        res = requests.get(url)
-    except requests.RequestException as e:
-        say(u'request error: {}'.format(e))
-        return data, new_offset
+    data = send_get_request_to_ab_server(url)
 
-    if res.status_code == 429:
-        say(u'Hit the limit. Slow down!')
-        return data, new_offset
-
-    if res.status_code != 200:
-        say(u'Bad response status code! URL={}'.format(url))
-        return data, new_offset
-
-    try:
-        data.update(res.json())
-    except ValueError:
-        say(u'Invalid Response')
-        return data, new_offset
-
-    return data, new_offset
+    return data
 
 
-def extract_from_output(output_path, target_map: Subview):
-    """extracts data from the low level json file as mapped out in the
-    `low_level_targets` configuration key
+def extract_from_json_file(output_path, target_map: Subview):
+    """reads the json file indicated by the output_path and gets the data
+    extracted from it
     """
-    data = {}
-
     if os.path.isfile(output_path):
         with open(output_path, "r") as json_file:
             audiodata = json.load(json_file)
-            for key in target_map.keys():
-                try:
-                    val = extract_value_from_audiodata(audiodata, target_map[key])
-                except AttributeError:
-                    val = None
-
-                data[key] = val
+            data = extract_from_output(audiodata, target_map)
     else:
-        raise FileNotFoundError("Output file({}) not found!".format(output_path))
+        raise FileNotFoundError(
+            "Output file({}) not found!".format(output_path))
+
+    return data
+
+
+def extract_from_output(audiodata, target_map: Subview):
+    """extracts data from the low|high level json file as mapped out
+    in the respective configuration keys
+    """
+    data = {}
+
+    for key in target_map.keys():
+        try:
+            val = extract_value_from_audiodata(audiodata, target_map[key])
+        except AttributeError:
+            val = None
+
+        data[key] = val
 
     return data
 

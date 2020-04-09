@@ -235,7 +235,7 @@ class XtractorCommand(Subcommand):
 
         try:
             target_map = self.config["high_level_targets"]
-            audiodata = common.extract_from_output(output_path, target_map)
+            audiodata = common.extract_from_json_file(output_path, target_map)
             self._say("Audiodata(High): {}".format(audiodata))
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
@@ -269,7 +269,7 @@ class XtractorCommand(Subcommand):
 
         try:
             target_map = self.config["low_level_targets"]
-            audiodata = common.extract_from_output(output_path, target_map)
+            audiodata = common.extract_from_json_file(output_path, target_map)
             self._say("Audiodata(Low): {}".format(audiodata))
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
@@ -354,9 +354,8 @@ class XtractorCommand(Subcommand):
     def _get_extractor_profile_path(self, level):
         if level not in ("low", "high"):
             raise ValueError(
-                "Profile level must be either 'low' or 'high'. Given: {"
-                "}".format(
-                    level))
+                "Profile level must be either 'low' or 'high'. Given: {}".
+                    format(level))
 
         profile_key = "{}_level_profile".format(level)
         profile_filename = "{}.yml".format(profile_key)
