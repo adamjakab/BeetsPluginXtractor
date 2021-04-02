@@ -33,7 +33,6 @@ class XtractorCommand(Subcommand):
     cfg_threads = 1
     cfg_force = False
     cfg_quiet = False
-    cfg_items_per_run = 0
 
     def __init__(self, config):
         self.config = config
@@ -47,7 +46,6 @@ class XtractorCommand(Subcommand):
         self.cfg_version = False
         self.cfg_count_only = False
         self.cfg_quiet = cfg.get("quiet")
-        self.cfg_items_per_run = cfg.get("items_per_run")
 
         self.parser = OptionParser(
             usage='beet {plg} [options] [QUERY...]'.format(
@@ -131,24 +129,18 @@ class XtractorCommand(Subcommand):
 
     def xtract(self):
         self.find_items_to_analyse()
-        self._say("Number of items to be processed: {}".format(len(self.items_to_analyse)))
+        self._say("Number of items to be processed: {}".format(len(self.items_to_analyse)), False)
 
         # Count only and exit
         if self.cfg_count_only:
             return
-
-        # Limit the number of items per run (0 means no limit)
-        if self.cfg_items_per_run != 0:
-            self.items_to_analyse = self.items_to_analyse[:self.cfg_items_per_run]
-        self._say("Number of items selected: {}".format(len(self.items_to_analyse)))
 
         # Run tasks on selected items
         self._execute_on_each_items(self.items_to_analyse, self.run_full_analysis)
 
         # Delete profiles (if config wants)
         if self.config["keep_profiles"].exists() and not self.config["keep_profiles"].get():
-            os.unlink(self._get_extractor_profile_path("low"))
-            os.unlink(self._get_extractor_profile_path("high"))
+            os.unlink(self._get_extractor_profile_path())
 
     def find_items_to_analyse(self):
         # Parse the incoming query
@@ -180,16 +172,12 @@ class XtractorCommand(Subcommand):
             return
 
     def run_full_analysis(self, item):
-        self._run_analysis_low_level(item)
-        self._run_analysis_high_level(item)
-        self._run_write_to_item(item)
+        self._run_analysis(item)
+        # self._run_write_to_item(item)
 
         # Delete output files (if config wants)
         if self.config["keep_output"].exists() and not self.config["keep_output"].get():
-            output_path = self._get_output_path_for_item(item, suffix="low")
-            if os.path.isfile(output_path):
-                os.unlink(output_path)
-            output_path = self._get_output_path_for_item(item, suffix="high")
+            output_path = self._get_output_path_for_item(item)
             if os.path.isfile(output_path):
                 os.unlink(output_path)
 
@@ -198,45 +186,12 @@ class XtractorCommand(Subcommand):
             if self.cfg_write:
                 item.try_write()
 
-    def _run_analysis_high_level(self, item):
+    def _run_analysis(self, item):
         try:
-            extractor_path = self._get_extractor_path(level="high")
-            input_path = self._get_output_path_for_item(item, suffix="low")
-            output_path = self._get_output_path_for_item(item, suffix="high")
-            profile_path = self._get_extractor_profile_path(level="high")
-        except ValueError as e:
-            self._say("Value error: {0}".format(e))
-            return
-        except KeyError as e:
-            self._say("Configuration error: {0}".format(e))
-            return
-        except FileNotFoundError as e:
-            self._say("File not found error: {0}".format(e))
-            return
-
-        self._say("Running high-level analysis: {0}".format(input_path))
-        self._run_essentia_extractor(extractor_path, input_path, output_path, profile_path)
-
-        try:
-            target_map = self.config["high_level_targets"]
-            audiodata = helper.extract_from_output(output_path, target_map)
-            self._say("Audiodata(High): {}".format(audiodata))
-        except FileNotFoundError as e:
-            self._say("File not found: {0}".format(e))
-            return
-
-        if not self.cfg_dry_run:
-            for attr in audiodata.keys():
-                if audiodata.get(attr):
-                    setattr(item, attr, audiodata.get(attr))
-            item.store()
-
-    def _run_analysis_low_level(self, item):
-        try:
-            extractor_path = self._get_extractor_path(level="low")
+            extractor_path = self._get_extractor_path()
             input_path = self._get_input_path_for_item(item)
-            output_path = self._get_output_path_for_item(item, suffix="low")
-            profile_path = self._get_extractor_profile_path(level="low")
+            output_path = self._get_output_path_for_item(item)
+            profile_path = self._get_extractor_profile_path()
         except ValueError as e:
             self._say("Value error: {0}".format(e))
             return
@@ -247,17 +202,28 @@ class XtractorCommand(Subcommand):
             self._say("File not found error: {0}".format(e))
             return
 
-        self._say("Running low-level analysis: {0}".format(input_path))
+        self._say("Running analysis for: {0}".format(input_path))
         self._run_essentia_extractor(extractor_path, input_path, output_path, profile_path)
 
+        # Extract low level targets
         try:
-            target_map = self.config["low_level_targets"]
-            audiodata = helper.extract_from_output(output_path, target_map)
-            self._say("Audiodata(Low): {}".format(audiodata))
+            audiodata_low = helper.extract_from_output(output_path, self.config["low_level_targets"])
         except FileNotFoundError as e:
             self._say("File not found: {0}".format(e))
             return
 
+        # Extract high level targets
+        try:
+            audiodata_high = helper.extract_from_output(output_path, self.config["high_level_targets"])
+        except FileNotFoundError as e:
+            self._say("File not found: {0}".format(e))
+            return
+
+        # Merge audio data
+        audiodata = {**audiodata_low, **audiodata_high}
+        self._say("Audiodata: {}".format(audiodata))
+
+        # Update and Store Item
         if not self.cfg_dry_run:
             for attr in audiodata.keys():
                 if audiodata.get(attr):
@@ -280,10 +246,10 @@ class XtractorCommand(Subcommand):
 
         self._say("The process exited with code: {0}".format(proc.returncode))
         self._say("Process stdout: {0}".format(stdout.decode()))
-        self._say("Process stderr: {0}".format(stderr.decode()))
+        self._say("Process stderr: {0}\n".format(stderr.decode()))
 
-        # Make sure file is encoded correctly (sometimes media files have
-        # funky tags)
+        # Make sure file is encoded correctly
+        # Sometimes media files have funky tags
         helper.asciify_file_content(output_path)
 
     def _execute_on_each_items(self, items, func):
@@ -294,16 +260,15 @@ class XtractorCommand(Subcommand):
                 finished += 1
                 # todo: show a progress bar (--progress-only option)
 
-    def _get_output_path_for_item(self, item: Item, suffix=""):
+    def _get_output_path_for_item(self, item: Item):
         identifier = item.get("mb_trackid")
         if not identifier:
             input_path = self._get_input_path_for_item(item)
             identifier = hashlib.md5(input_path.encode('utf-8')).hexdigest()
 
-        output_file = "{id}{sfx}{ext}".format(
+        output_file = "{id}.{ext}".format(
             id=identifier,
-            sfx=".{}".format(suffix) if suffix else "",
-            ext=".json"
+            ext="json"
         )
 
         return os.path.join(self._get_extraction_output_path(), output_file)
@@ -331,12 +296,9 @@ class XtractorCommand(Subcommand):
 
         return output_path
 
-    def _get_extractor_profile_path(self, level):
-        if level not in ("low", "high"):
-            raise ValueError("Profile level must be either 'low' or 'high'. Given: {}".format(level))
-
-        profile_key = "{}_level_profile".format(level)
-        profile_filename = "{}.yml".format(profile_key)
+    def _get_extractor_profile_path(self):
+        profile_key = "extractor_profile"
+        profile_filename = "profile.yml"
         profile_path = os.path.join(self._get_extraction_output_path(), profile_filename)
 
         if not os.path.isfile(profile_path):
@@ -346,7 +308,7 @@ class XtractorCommand(Subcommand):
 
             profile_content = self.config[profile_key].flatten()
             profile_content = json.loads(json.dumps(profile_content))
-            # Override outputFormat (we only hande json for now)
+            # Override outputFormat (we only handle json for now)
             profile_content["outputFormat"] = "json"
 
             f = open(profile_path, 'w+')
@@ -357,11 +319,8 @@ class XtractorCommand(Subcommand):
 
         return profile_path
 
-    def _get_extractor_path(self, level):
-        if level not in ("low", "high"):
-            raise ValueError("Extractor level must be either 'low' or 'high'. Given: {}".format(level))
-
-        extractor_key = "{}_level_extractor".format(level)
+    def _get_extractor_path(self):
+        extractor_key = "essentia_extractor"
         if not self.config[extractor_key].exists():
             raise KeyError("Key '{}' is not defined".format(extractor_key))
 
