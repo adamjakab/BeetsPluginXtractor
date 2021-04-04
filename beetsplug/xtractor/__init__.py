@@ -20,5 +20,16 @@ class XtractorPlugin(BeetsPlugin):
         source = ConfigSource(load_yaml(config_file_path) or {}, config_file_path)
         self.config.add(source)
 
+        # @todo: activate this to store the attributes in media files
+        # field = mediafile.MediaField(
+        #     mediafile.MP3DescStorageStyle(u'danceability'), mediafile.StorageStyle(u'danceability')
+        # )
+        # self.add_media_field('danceability', field)
+        #
+        # field = mediafile.MediaField(
+        #     mediafile.MP3DescStorageStyle(u'beats_count'), mediafile.StorageStyle(u'beats_count')
+        # )
+        # self.add_media_field('beats_count', field)
+
     def commands(self):
         return [XtractorCommand(self.config)]
