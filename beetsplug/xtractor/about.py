@@ -6,8 +6,8 @@ __author__ = u'Adam Jakab'
 __email__ = u'adam@jakab.pro'
 __copyright__ = u'Copyright (c) 2020, {} <{}>'.format(__author__, __email__)
 __license__ = u'License :: OSI Approved :: MIT License'
-__version__ = u'0.2.3'
-__status__ = u'Kickstarted'
+__version__ = u'0.3.0'
+__status__ = u'Building'
 
 __PACKAGE_TITLE__ = u'Xtractor'
 __PACKAGE_NAME__ = u'beets-xtractor'

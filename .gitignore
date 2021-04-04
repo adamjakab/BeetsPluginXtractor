@@ -2,6 +2,7 @@
 tmp/
 coverage/
 BEETSDIR/*
+Data/*
 
 
 ### Python template

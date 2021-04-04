@@ -23,10 +23,9 @@ from beets.util import (
     displayable_path,
 )
 from beets.util.confit import Subview, Dumper
-from six import StringIO
-
 from beetsplug import xtractor
 from beetsplug.xtractor import helper
+from six import StringIO
 
 logging.getLogger('beets').propagate = True
 

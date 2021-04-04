@@ -19,8 +19,8 @@ __logger__ = logging.getLogger(
 
 
 def extract_from_output(output_path, target_map: Subview):
-    """extracts data from the low level json file as mapped out in the
-    `low_level_targets` configuration key
+    """extracts data from the json file as mapped out in the
+    `low_level_targets` / `high_level_targets` configuration keys
     """
     data = {}
 

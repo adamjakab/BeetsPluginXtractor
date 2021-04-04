@@ -8,7 +8,6 @@ import os
 
 from beets.plugins import BeetsPlugin
 from beets.util.confit import ConfigSource, load_yaml
-
 from beetsplug.xtractor.command import XtractorCommand
 
 
@@ -20,6 +19,17 @@ class XtractorPlugin(BeetsPlugin):
         config_file_path = os.path.join(os.path.dirname(__file__), self._default_plugin_config_file_name_)
         source = ConfigSource(load_yaml(config_file_path) or {}, config_file_path)
         self.config.add(source)
+
+        # @todo: activate this to store the attributes in media files
+        # field = mediafile.MediaField(
+        #     mediafile.MP3DescStorageStyle(u'danceability'), mediafile.StorageStyle(u'danceability')
+        # )
+        # self.add_media_field('danceability', field)
+        #
+        # field = mediafile.MediaField(
+        #     mediafile.MP3DescStorageStyle(u'beats_count'), mediafile.StorageStyle(u'beats_count')
+        # )
+        # self.add_media_field('beats_count', field)
 
     def commands(self):
         return [XtractorCommand(self.config)]

@@ -6,10 +6,14 @@
 
 # Xtractor (Beets Plugin)
 
-The *beets-xtractor* plugin lets you, through the use of the [Essentia](https://essentia.upf.edu/index.html) extractors, to obtain low and high level musical information about your songs.
+The *beets-xtractor* plugin lets you, through the use of the [Essentia](https://essentia.upf.edu/index.html) extractors,
+to obtain low and high level musical information from your songs.
 
-Currently, the following attributes are extracted for each library item: `average_loudness`, `bpm`, `danceable`, `gender`, `genre_rosamerica`, `voice_instrumental`, `mood_acoustic`, `mood_aggressive`, `mood_electronic`, `mood_happy`, `mood_party`, `mood_relaxed`, `mood_sad` (some more to come soon)
-
+Currently, the following attributes are extracted for each library item:
+`bpm`, `danceability`, `beats_count`, `average_loudness`,  `danceable`, `gender`, `is_male`, `is_female`,
+`genre_rosamerica`, `voice_instrumental`, `is_voice`, `is_instrumental`, `mood_acoustic`,
+`mood_aggressive`, `mood_electronic`, `mood_happy`, `mood_sad`, `mood_party`, `mood_relaxed`, `mood_mirex`,
+`mood_mirex_cluster_1`, `mood_mirex_cluster_2`, `mood_mirex_cluster_3`, `mood_mirex_cluster_4`, `mood_mirex_cluster_5`
 
 ## Installation
 The plugin can be installed via:
@@ -25,15 +29,21 @@ plugins:
 ```
 
 ### Install the Essentia extractors
-You will also need the two binary extractors from the [Essentia project](#credits). They are called:
 
-- streaming_extractor_music
-- streaming_extractor_music_svm
+You will also need the `streaming_extractor_music` binary extractor from the [Essentia project](#credits). You will need
+to compile this extractor yourself.
+The [official installation documentation](https://essentia.upf.edu/installing.html#compiling-essentia-from-source)
+is somewhat complex but with some cross searching on the internet you will make it. If you are stuck you can use
+the [Issue tracker](https://github.com/adamjakab/BeetsPluginXtractor/issues). Make sure you compile it with Gaia
+support (`--with-gaia`) otherwise will not be able to use the high level models.
 
-Unfortunately, only the first extractor is readily available for download whilst to have the second one you will need to compile it yourself. The [official installation documentation](https://essentia.upf.edu/installing.html) is somewhat complex but with some cross searching on internet you will make it. If you are stuck you can use the [Issue tracker](https://github.com/adamjakab/BeetsPluginXtractor/issues). Make sure you compile with Gaia support (`--with-gaia`) otherwise your second `streaming_extractor_music_svm` will not be built.
 
 ### Download the SVM models
-The second extractor uses prebuilt trained models for prediction. You need to download these from here: [SVM Models](https://essentia.upf.edu/svm_models/) I suggest that you download the more recent beta5 version. This means that your binaries must match this version. Put the downloaded models in any folder from which they can be accessed.
+
+The second extractor uses prebuilt trained models for prediction. You need to download these from
+here: [SVM Models](https://essentia.upf.edu/svm_models/). I suggest that you download the more recent beta5 version.
+This means that your binaries must match this version. Put the downloaded models in any folder from which they can be
+accessed.
 
 
 ## Configuration
@@ -47,13 +57,11 @@ xtractor:
     threads: 1
     force: no
     quiet: no
-    items_per_run: 0
     keep_output: yes
     keep_profiles: no
     output_path: /mnt/data/xtraction_data
-    low_level_extractor: /mnt/data/extractors/beta5/streaming_extractor_music
-    high_level_extractor: /mnt/data/extractors/beta5/streaming_extractor_music_svm
-    high_level_profile:
+    essentia_extractor: /mnt/data/extractors/beta5/streaming_extractor_music
+    extractor_profile:
         highlevel:
             svm_models:
                 - /mnt/data/extractors/beta5/svm_models/danceability.history
@@ -63,17 +71,25 @@ xtractor:
                 - /mnt/data/extractors/beta5/svm_models/mood_aggressive.history
                 - /mnt/data/extractors/beta5/svm_models/mood_electronic.history
                 - /mnt/data/extractors/beta5/svm_models/mood_happy.history
+                - /mnt/data/extractors/beta5/svm_models/mood_sad.history
                 - /mnt/data/extractors/beta5/svm_models/mood_party.history
                 - /mnt/data/extractors/beta5/svm_models/mood_relaxed.history
-                - /mnt/data/extractors/beta5/svm_models/mood_sad.history
                 - /mnt/data/extractors/beta5/svm_models/voice_instrumental.history
+                - /mnt/data/extractors/beta5/svm_models/moods_mirex.history
 ```
 
-First of all, you will need adjust all paths. Put the paths of the extractor binaries in `low_level_extractor`and `high_level_extractor`, substitute the location of the SVM models with your local path under the `svm_models` desction. And finally, set the `output_path` to indicate where the extracted data files will be stored. I you do not set this, a temporary path will be used.
+First of all, you will need adjust all paths. Put the path of the extractor binary in `essentia_extractor` and
+substitute the location of the SVM models with your local path under the `svm_models` section. Finally, set
+the `output_path` to indicate where the extracted data files will be stored. If you do not set this, a temporary path
+will be used.
 
-By default both `keep_output` and `keep_profile` options are set to `no`. This means that after extraction (and the storage of the important information) the profile files used to pass to the extractors and the json files created by the extractors will be deleted. There are various reasons you might want to keep these files. One is for debugging purposes.  Another is to see what else is in these files (there is a lot) and maybe to use them with some other projects of yours. Lastly, you might want to keep these because the plugin only extracts data if these files are not present. If you store them, on a successive extraction, the plugin will skip the extraction and use these files (they are named by `mb_trackid`) - speeding up the process a lot.
-
-The `items_per_run` set to 0 will execute on all items. If you want to limit the number of items per execution (maybe because you want to run a nightly cron job in a limited timeframe) you can use this.
+By default both `keep_output` and `keep_profile` options are set to `no`. This means that after extraction (and the
+storage of the important information) the profile files used to pass to the extractors, and the json files created by
+the extractors will be deleted. There are various reasons you might want to keep these files. One is for debugging
+purposes. Another is to see what else is in these files (there is a lot) and maybe to use them with some other projects
+of yours. Lastly, you might want to keep these because the plugin only extracts data if these files are not present. If
+you store them, on a successive extraction, the plugin will skip the extraction and use these files (they are named
+by `mb_trackid`) - speeding up the process a lot.
 
 The `force` option instructs the plugin to execute on items which already have the required properties.
 
