@@ -22,7 +22,7 @@ from beets.util import (
     bytestring_path,
     displayable_path,
 )
-from beets.util.confit import Subview, Dumper
+from confuse import Subview, Dumper
 from beetsplug import xtractor
 from beetsplug.xtractor import helper
 from six import StringIO
