@@ -6,7 +6,7 @@ import json
 import logging
 import os
 
-from beets.util.confit import Subview
+from confuse import Subview
 
 # Get values as: plg_ns['__PLUGIN_NAME__']
 plg_ns = {}
