@@ -1,3 +1,9 @@
+ ## IDE (JetBrains/Eclipse)
+.idea/
+.project
+.pydevproject
+.settings
+
 # Project
 tmp/
 coverage/
