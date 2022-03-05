@@ -5,6 +5,7 @@
 import hashlib
 import json
 import os
+import multiprocessing
 import tempfile
 from concurrent import futures
 from optparse import OptionParser
@@ -117,6 +118,11 @@ class XtractorCommand(Subcommand):
         self.cfg_version = options.version
         self.cfg_count_only = options.count_only
         self.cfg_quiet = options.quiet
+
+        # Auto Thread Count
+        if self.cfg_threads == 0:
+            self.cfg_threads = multiprocessing.cpu_count()
+            self._say("Adjusting max threads to CPU count: {0}".format(self.cfg_threads), True)
 
         self.lib = lib
         self.query = decargs(arguments)
