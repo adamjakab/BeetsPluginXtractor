@@ -92,13 +92,16 @@ by `mb_trackid`) - speeding up the process a lot.
 
 The `force` option instructs the plugin to execute on items which already have the required properties.
 
-The `threads` option sets the number of concurrent executions. If you remove this option the number of cores present on your machine will be used. The extraction is quite a CPU intensive process so there might be cases when you want to limit it to just 1.
+The `threads` option sets the number of concurrent executions. By default this is set to 1.
+If you remove this option or if you set it to 0 the number of CPU cores present on your machine will be used.
+The extraction is quite a CPU intensive process so there might be cases when you want to limit it to just 1.
 
 The `write` option instructs the plugin to write the extracted attributes to the media file right away. Note that only `bpm` is actually written to the media file, all the other attributes are flex attributes and are only stored in the database.
 
 The `dry-run` option shows what would be done without actually doing it.
 
 **NOTE**: Please note that the `auto` option is not yet implemented. For now you will have to call the xtractor plugin manually.
+
 
 ## Usage
 
