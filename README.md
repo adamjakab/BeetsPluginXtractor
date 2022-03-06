@@ -80,7 +80,12 @@ xtractor:
 First of all, you will need adjust all paths. Put the path of the extractor binary in `essentia_extractor` and
 substitute the location of the SVM models with your local path under the `svm_models` section. Finally, set
 the `output_path` to indicate where the extracted data files will be stored. If you do not set this, a temporary path
-will be used.
+will be used. 
+
+**Note on shell tilde expansion**:  Please note that you cannot use shell expansion on the `svm_models` (i.e.: do not use `~` for your home folder).
+The entire section of `extractor_profile` is passed as-is to the essentia extractor binary and it will not do tilde expansion on your paths.
+The rest of the path keys such as `essentia_extractor` and `output_path` are used by the plugin itself and it will take
+care of expanding the tilde symbol (`~`) to the home directory of the user running the script. 
 
 By default both `keep_output` and `keep_profile` options are set to `no`. This means that after extraction (and the
 storage of the important information) the profile files used to pass to the extractors, and the json files created by
