@@ -262,7 +262,7 @@ class XtractorCommand(Subcommand):
 
     def _get_output_path_for_item(self, item: Item):
         identifier = item.get("mb_trackid")
-        if not identifier:
+        if not identifier or '/' in identifier:
             input_path = self._get_input_path_for_item(item)
             identifier = hashlib.md5(input_path.encode('utf-8')).hexdigest()
 
