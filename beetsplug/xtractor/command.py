@@ -179,7 +179,7 @@ class XtractorCommand(Subcommand):
 
     def run_full_analysis(self, item):
         self._run_analysis(item)
-        # self._run_write_to_item(item)
+        self._run_write_to_item(item)
 
         # Delete output files (if config wants)
         if self.config["keep_output"].exists() and not self.config["keep_output"].get():
@@ -246,8 +246,9 @@ class XtractorCommand(Subcommand):
         self._say("Output: {0}".format(output_path))
         self._say("Profile: {0}".format(profile_path))
 
-        proc = Popen([extractor_path, input_path, output_path, profile_path],
-                     stdout=PIPE, stderr=PIPE)
+        cmd_and_args = [extractor_path, input_path, output_path, profile_path]
+        self._say("Executing: {0}".format(' '.join(f'"{a}"' for a in cmd_and_args)))
+        proc = Popen(cmd_and_args, stdout=PIPE, stderr=PIPE)
         stdout, stderr = proc.communicate()
 
         self._say("The process exited with code: {0}".format(proc.returncode))
@@ -268,7 +269,7 @@ class XtractorCommand(Subcommand):
 
     def _get_output_path_for_item(self, item: Item):
         identifier = item.get("mb_trackid")
-        if not identifier:
+        if not identifier or '/' in identifier:
             input_path = self._get_input_path_for_item(item)
             identifier = hashlib.md5(input_path.encode('utf-8')).hexdigest()
 
