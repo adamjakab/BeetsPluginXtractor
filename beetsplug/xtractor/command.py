@@ -246,8 +246,9 @@ class XtractorCommand(Subcommand):
         self._say("Output: {0}".format(output_path))
         self._say("Profile: {0}".format(profile_path))
 
-        proc = Popen([extractor_path, input_path, output_path, profile_path],
-                     stdout=PIPE, stderr=PIPE)
+        cmd_and_args = [extractor_path, input_path, output_path, profile_path]
+        self._say("Executing: {0}".format(' '.join(f'"{a}"' for a in cmd_and_args)))
+        proc = Popen(cmd_and_args, stdout=PIPE, stderr=PIPE)
         stdout, stderr = proc.communicate()
 
         self._say("The process exited with code: {0}".format(proc.returncode))
