@@ -82,6 +82,11 @@ substitute the location of the SVM models with your local path under the `svm_mo
 the `output_path` to indicate where the extracted data files will be stored. If you do not set this, a temporary path
 will be used.
 
+**Note on shell tilde expansion**:  Please note that you cannot use shell expansion on the `svm_models` (i.e.: do not use `~` for your home folder).
+The entire section of `extractor_profile` is passed as-is to the essentia extractor binary and it will not do tilde expansion on your paths.
+The rest of the path keys such as `essentia_extractor` and `output_path` are used by the plugin itself and it will take
+care of expanding the tilde symbol (`~`) to the home directory of the user running the script.
+
 By default both `keep_output` and `keep_profile` options are set to `no`. This means that after extraction (and the
 storage of the important information) the profile files used to pass to the extractors, and the json files created by
 the extractors will be deleted. There are various reasons you might want to keep these files. One is for debugging
@@ -92,13 +97,16 @@ by `mb_trackid`) - speeding up the process a lot.
 
 The `force` option instructs the plugin to execute on items which already have the required properties.
 
-The `threads` option sets the number of concurrent executions. If you remove this option the number of cores present on your machine will be used. The extraction is quite a CPU intensive process so there might be cases when you want to limit it to just 1.
+The `threads` option sets the number of concurrent executions. By default this is set to 1.
+If you remove this option or if you set it to 0 the number of CPU cores present on your machine will be used.
+The extraction is quite a CPU intensive process so there might be cases when you want to limit it to just 1.
 
 The `write` option instructs the plugin to write the extracted attributes to the media file right away. Note that only `bpm` is actually written to the media file, all the other attributes are flex attributes and are only stored in the database.
 
 The `dry-run` option shows what would be done without actually doing it.
 
 **NOTE**: Please note that the `auto` option is not yet implemented. For now you will have to call the xtractor plugin manually.
+
 
 ## Usage
 
