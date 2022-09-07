@@ -179,7 +179,7 @@ class XtractorCommand(Subcommand):
 
     def run_full_analysis(self, item):
         self._run_analysis(item)
-        # self._run_write_to_item(item)
+        self._run_write_to_item(item)
 
         # Delete output files (if config wants)
         if self.config["keep_output"].exists() and not self.config["keep_output"].get():
