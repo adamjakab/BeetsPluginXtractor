@@ -263,9 +263,15 @@ class XtractorCommand(Subcommand):
         total = len(items)
         finished = 0
         with futures.ThreadPoolExecutor(max_workers=self.cfg_threads) as e:
+            if total and not self.cfg_quiet:
+                self._show_progress(finished, total)
             for _ in e.map(func, items):
                 finished += 1
-                # todo: show a progress bar (--progress-only option)
+                if not self.cfg_quiet:
+                    self._show_progress(finished, total)
+
+    def _show_progress(self, done, total):
+        print('Finished: [%d/%d]\r' % (done, total), end="")
 
     def _get_output_path_for_item(self, item: Item):
         identifier = item.get("mb_trackid")

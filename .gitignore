@@ -1,8 +1,9 @@
- ## IDE (JetBrains/Eclipse)
+ ## IDE (JetBrains/Eclipse/Visual Studio Code)
 .idea/
 .project
 .pydevproject
 .settings
+.vscode
 
 # Project
 tmp/
