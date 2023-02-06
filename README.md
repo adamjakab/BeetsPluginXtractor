@@ -36,7 +36,6 @@ is somewhat complex but with some cross searching on the internet you will make 
 the [Issue tracker](https://github.com/adamjakab/BeetsPluginXtractor/issues). Make sure you compile it with Gaia
 support (`--with-gaia`) otherwise will not be able to use the high level models.
 
-
 ### Download the SVM models
 
 The second extractor uses prebuilt trained models for prediction. You need to download these from
@@ -44,6 +43,11 @@ here: [SVM Models](https://essentia.upf.edu/svm_models/). I suggest that you dow
 This means that your binaries must match this version. Put the downloaded models in any folder from which they can be
 accessed.
 
+### Precompiled packages
+
+If you happen to use Linux to run beets, the MusicPlayerPlus project provides pre-compiled packages that were split out from the main project and can be downloaded separately here: https://github.com/doctorfree/mpplus-essentia/releases.
+
+The package contains a precompiled extractor binary as well as the fitting SVM models (as of writing 2.1 beta5).
 
 ## Configuration
 All your configuration will need to go under the `xtractor` key. This is what your configuration should look like:
