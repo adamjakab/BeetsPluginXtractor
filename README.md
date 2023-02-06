@@ -49,6 +49,8 @@ If you happen to use Linux to run beets, the MusicPlayerPlus project provides pr
 
 The package contains a precompiled extractor binary as well as the fitting SVM models (as of writing 2.1 beta5).
 
+`mpplus-essentia` provides the files you need for your beets configuration as `/usr/bin/essentia_streaming_extractor_music` and `/usr/share/mpplus-essentia/svm_models/*.history`
+
 ## Configuration
 All your configuration will need to go under the `xtractor` key. This is what your configuration should look like:
 
