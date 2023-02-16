@@ -6,7 +6,7 @@ __author__ = u'Adam Jakab'
 __email__ = u'adam@jakab.pro'
 __copyright__ = u'Copyright (c) 2020, {} <{}>'.format(__author__, __email__)
 __license__ = u'License :: OSI Approved :: MIT License'
-__version__ = u'0.3.1'
+__version__ = u'0.4'
 __status__ = u'Building'
 
 __PACKAGE_TITLE__ = u'Xtractor'
