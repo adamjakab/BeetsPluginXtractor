@@ -1,3 +1,4 @@
+[![Test & Release & Deploy](https://github.com/adamjakab/BeetsPluginXtractor/actions/workflows/test_release_deploy.yml/badge.svg)](https://github.com/adamjakab/BeetsPluginXtractor/actions/workflows/test_release_deploy.yml)
 [![Coverage Status](https://coveralls.io/repos/github/adamjakab/BeetsPluginXtractor/badge.svg?branch=master)](https://coveralls.io/github/adamjakab/BeetsPluginXtractor?branch=master)
 [![PyPi](https://img.shields.io/pypi/v/beets-xtractor.svg)](https://pypi.org/project/beets-xtractor/)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/beets-xtractor.svg)](https://pypi.org/project/beets-xtractor/)
