@@ -2,21 +2,22 @@
 #  Author: Adam Jakab <adam at jakab dot pro>
 #  License: See LICENSE.txt
 
+from concurrent import futures
 import hashlib
 import json
-import os
 import multiprocessing
-import tempfile
-from concurrent import futures
 from optparse import OptionParser
+import os
 from subprocess import Popen, PIPE
+import tempfile
 
 import yaml
+
 from beets import dbcore
 from beets.library import Library, Item, parse_query_string
 from beets.ui import Subcommand, decargs
-from confuse import Subview
 from beetsplug.xtractor import helper
+from confuse import Subview
 
 
 class XtractorCommand(Subcommand):
