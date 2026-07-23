@@ -54,31 +54,31 @@ All your configuration will need to go under the `xtractor` key. This is what yo
 
 ```yaml
 xtractor:
-  auto: no
-  dry-run: no
-  write: yes
-  threads: 1
-  force: no
-  quiet: no
-  keep_output: yes
-  keep_profiles: no
-  output_path: /mnt/data/xtraction_data
-  essentia_extractor: /mnt/data/extractors/beta5/streaming_extractor_music
-  extractor_profile:
-    highlevel:
-      svm_models:
-        - /mnt/data/extractors/beta5/svm_models/danceability.history
-        - /mnt/data/extractors/beta5/svm_models/gender.history
-        - /mnt/data/extractors/beta5/svm_models/genre_rosamerica.history
-        - /mnt/data/extractors/beta5/svm_models/mood_acoustic.history
-        - /mnt/data/extractors/beta5/svm_models/mood_aggressive.history
-        - /mnt/data/extractors/beta5/svm_models/mood_electronic.history
-        - /mnt/data/extractors/beta5/svm_models/mood_happy.history
-        - /mnt/data/extractors/beta5/svm_models/mood_sad.history
-        - /mnt/data/extractors/beta5/svm_models/mood_party.history
-        - /mnt/data/extractors/beta5/svm_models/mood_relaxed.history
-        - /mnt/data/extractors/beta5/svm_models/voice_instrumental.history
-        - /mnt/data/extractors/beta5/svm_models/moods_mirex.history
+    auto: no
+    dry-run: no
+    write: yes
+    threads: 1
+    force: no
+    quiet: no
+    keep_output: yes
+    keep_profiles: no
+    output_path: /mnt/data/xtraction_data
+    essentia_extractor: /mnt/data/extractors/beta5/streaming_extractor_music
+    extractor_profile:
+        highlevel:
+            svm_models:
+                - /mnt/data/extractors/beta5/svm_models/danceability.history
+                - /mnt/data/extractors/beta5/svm_models/gender.history
+                - /mnt/data/extractors/beta5/svm_models/genre_rosamerica.history
+                - /mnt/data/extractors/beta5/svm_models/mood_acoustic.history
+                - /mnt/data/extractors/beta5/svm_models/mood_aggressive.history
+                - /mnt/data/extractors/beta5/svm_models/mood_electronic.history
+                - /mnt/data/extractors/beta5/svm_models/mood_happy.history
+                - /mnt/data/extractors/beta5/svm_models/mood_sad.history
+                - /mnt/data/extractors/beta5/svm_models/mood_party.history
+                - /mnt/data/extractors/beta5/svm_models/mood_relaxed.history
+                - /mnt/data/extractors/beta5/svm_models/voice_instrumental.history
+                - /mnt/data/extractors/beta5/svm_models/moods_mirex.history
 ```
 
 First of all, you will need adjust all paths. Put the path of the extractor binary in `essentia_extractor` and
@@ -90,7 +90,6 @@ will be used.
 **Note on shell tilde expansion**: Please note that you cannot use shell expansion on the `svm_models` (i.e.: do not use `~` for your home folder).
 The entire section of `extractor_profile` is passed as-is to the essentia extractor binary and it will not do tilde expansion on your paths.
 The rest of the path keys such as `essentia_extractor` and `output_path` are used by the plugin itself and it will take
-care of expanding the tilde symbol (`~`) to the home directory of the user running the script.
 care of expanding the tilde symbol (`~`) to the home directory of the user running the script.
 
 By default both `keep_output` and `keep_profile` options are set to `no`. This means that after extraction (and the
@@ -117,15 +116,21 @@ The `dry-run` option shows what would be done without actually doing it.
 
 Invoke the plugin as:
 
-    $ beet xtractor [options] [QUERY...]
+```bash
+beet xtractor [options] [QUERY...]
+```
 
 For a more verbose reporting use the `-v` flag on `beet`:
 
-    $ beet -v xtractor [options] [QUERY...]
+```bash
+beet -v xtractor [options] [QUERY...]
+```
 
 The plugin has also got a shorthand `xt` so you can also invoke it like this:
 
-    $ beet xt [options] [QUERY...]
+```bash
+beet xt [options] [QUERY...]
+```
 
 The following command line options are available:
 
