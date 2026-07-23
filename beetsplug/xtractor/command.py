@@ -48,6 +48,7 @@ class XtractorCommand(Subcommand):
         self.cfg_version = False
         self.cfg_count_only = False
         self.cfg_quiet = cfg.get("quiet")
+        self.cfg_field_rename = cfg.get("field_rename") or {}
 
         self.parser = OptionParser(
             usage='beet {plg} [options] [QUERY...]'.format(
@@ -150,6 +151,19 @@ class XtractorCommand(Subcommand):
             os.unlink(self._get_extractor_profile_path())
 
     def find_items_to_analyse(self):
+        """Populate `self.items_to_analyse` with items that need to be analysed.
+
+        - Unless `force` is set, restrict to items missing at least one
+          field marked `required: yes` in `low_level_targets` /
+          `high_level_targets` (after `field_rename`). This is what makes
+          xtractor idempotent: once a required field is written, the item is
+          skipped on later runs.
+        - Use ``NoneQuery`` (``field IS NULL``) instead of ``MatchQuery(field,
+          None)`` for “missing” values. SQL ``x = NULL`` is never true, so
+          ``MatchQuery`` would match nothing for fixed ``Item`` fields (e.g.,
+          ``bpm``) in fast SQL. ``NoneQuery`` works in both SQL (fast) and
+          Python (flex) paths.
+        """
         # Parse the incoming query
         parsed_query, parsed_sort = parse_query_string(" ".join(self.query), Item)
         combined_query = parsed_query
@@ -163,8 +177,9 @@ class XtractorCommand(Subcommand):
                 target_map = self.config[map_key]
                 for fld in target_map:
                     if target_map[fld]["required"].exists() and target_map[fld]["required"].get(bool):
-                        fast = fld in Item._fields
-                        query_item = dbcore.query.MatchQuery(fld, None, fast=fast)
+                        field_name = self.cfg_field_rename.get(fld, fld)
+                        fast = field_name in Item._fields
+                        query_item = dbcore.query.NoneQuery(field_name, fast=fast)
                         subqueries.append(query_item)
 
             unprocessed_items_query = dbcore.query.OrQuery(subqueries)
@@ -235,9 +250,10 @@ class XtractorCommand(Subcommand):
 
         # Update and Store Item
         if not self.cfg_dry_run:
-            for attr in audiodata.keys():
-                if audiodata.get(attr):
-                    setattr(item, attr, audiodata.get(attr))
+            for attr, value in audiodata.items():
+                if value is not None:
+                    renamed_attr = self.cfg_field_rename.get(attr, attr)
+                    setattr(item, renamed_attr, value)
             item.store()
 
         return True

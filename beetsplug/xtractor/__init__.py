@@ -14,46 +14,13 @@ from beetsplug.xtractor.command import XtractorCommand
 
 class XtractorPlugin(BeetsPlugin):
     _default_plugin_config_file_name_ = 'config_default.yml'
-    item_types = {
-        'average_loudness': types.Float(6),
-        'beats_count': types.INTEGER,
-        # 'chords_changes_rate': types.Float(6),
-        # 'chords_key': types.STRING,
-        # 'chords_number_rate': types.Float(6),
-        # 'chords_scale': types.STRING,
-        # 'key_strength': types.Float(6),
-        'danceable': types.Float(6),
-        'danceability': types.Float(6),
-        'gender': types.STRING,
-        'is_male': types.Float(6),
-        'is_female': types.Float(6),
-        'genre_rosamerica': types.STRING,
-        'mood_acoustic': types.Float(6),
-        'mood_aggressive': types.Float(6),
-        'mood_electronic': types.Float(6),
-        'mood_happy': types.Float(6),
-        'mood_party': types.Float(6),
-        'mood_relaxed': types.Float(6),
-        'mood_sad': types.Float(6),
-        'mood_mirex': types.STRING,
-        'mood_mirex_cluster_1': types.Float(6),
-        'mood_mirex_cluster_2': types.Float(6),
-        'mood_mirex_cluster_3': types.Float(6),
-        'mood_mirex_cluster_4': types.Float(6),
-        'mood_mirex_cluster_5': types.Float(6),
-        # 'rhythm': types.Float(6),
-        # 'timbre': types.STRING,
-        # 'tonal': types.Float(6),
-        'voice_instrumental': types.STRING,
-        'is_instrumental': types.Float(6),
-        'is_voice': types.Float(6),
-    }
 
     def __init__(self):
         super(XtractorPlugin, self).__init__()
         config_file_path = os.path.join(os.path.dirname(__file__), self._default_plugin_config_file_name_)
         source = ConfigSource(load_yaml(config_file_path) or {}, config_file_path)
         self.config.add(source)
+        self.item_types = self._build_item_types()
 
         # @todo: activate this to store the attributes in media files
         # field = mediafile.MediaField(
@@ -65,6 +32,36 @@ class XtractorPlugin(BeetsPlugin):
         #     mediafile.MP3DescStorageStyle(u'beats_count'), mediafile.StorageStyle(u'beats_count')
         # )
         # self.add_media_field('beats_count', field)
+
+    def _build_item_types(self):
+        """Build the `item_types` mapping beets uses to know the data type of
+        each flexible attribute this plugin writes (e.g. for `-f`/`-F`
+        formatting and typed queries like `danceable::0.5..1`).
+
+        - Field names are taken from `low_level_targets`/`high_level_targets`.
+        - Apply field_rename so types are registered under the actual attribute
+          name (not the config key); otherwise the real field remains untyped
+          while the renamed key is typed but unused.
+        - Defaults to float when a target has no explicit `type`.
+        """
+        type_map = {
+            'float': types.Float(6),
+            'integer': types.INTEGER,
+            'string': types.STRING,
+        }
+        cfg = self.config.flatten()
+        renames = cfg.get('field_rename') or {}
+        item_types = {}
+        for map_key in ['low_level_targets', 'high_level_targets']:
+            if not self.config[map_key].exists():
+                continue
+            target_map = self.config[map_key]
+            for fld in target_map:
+                type_str = target_map[fld]['type'].as_str() if target_map[fld]['type'].exists() else 'float'
+                beets_type = type_map.get(type_str, types.Float(6))
+                field_name = renames.get(fld, fld)
+                item_types[field_name] = beets_type
+        return item_types
 
     def commands(self):
         return [XtractorCommand(self.config)]

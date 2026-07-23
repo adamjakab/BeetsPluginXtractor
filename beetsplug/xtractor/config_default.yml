@@ -6,6 +6,7 @@ force: no
 quiet: no
 keep_output: no
 keep_profiles: no
+field_rename: {}
 low_level_targets:
   bpm:
     path: "rhythm.bpm"
@@ -21,6 +22,22 @@ low_level_targets:
     path: "lowlevel.average_loudness"
     type: float
     required: yes
+  # optional tonal/chords descriptors (from Essentia low-level output)
+  # chords_changes_rate:
+  #   path: "tonal.chords_changes_rate"
+  #   type: float
+  # chords_key:
+  #   path: "tonal.chords_key"
+  #   type: string
+  # chords_number_rate:
+  #   path: "tonal.chords_number_rate"
+  #   type: float
+  # chords_scale:
+  #   path: "tonal.chords_scale"
+  #   type: string
+  # key_strength:
+  #   path: "tonal.key_strength"
+  #   type: float
 high_level_targets:
   danceable:
     path: "highlevel.danceability.all.danceable"
@@ -98,6 +115,16 @@ high_level_targets:
   mood_mirex_cluster_5:
     path: "highlevel.moods_mirex.all.Cluster5"
     type: float
+  # optional SVM model outputs (requires corresponding .history model files)
+  # timbre:
+  #   path: "highlevel.timbre.value"
+  #   type: string
+  # tonal:
+  #   path: "highlevel.tonal_atonal.value"
+  #   type: string
+  # rhythm:
+  #   path: "highlevel.rhythm.value"
+  #   type: string
 essentia_extractor: /your/path/to/streaming_extractor_music
 extractor_profile:
   outputFormat: json
