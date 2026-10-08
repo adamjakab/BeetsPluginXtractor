@@ -153,7 +153,8 @@ class TestHelper(TestCase, Assertions):
         self.config['directory'] = libdir
         self.libdir = bytestring_path(libdir)
 
-        self.lib = beets.library.Library(':memory:', self.libdir)
+        # An in-memory library would make beets drop its migration backups into the working directory
+        self.lib = beets.library.Library(os.path.join(self.mkdtemp(), 'library.db'), self.libdir)
 
         # This will initialize (create instance) of the plugins
         plugins.load_plugins()

@@ -3,6 +3,7 @@
 #  License: See LICENSE.txt
 
 from concurrent import futures
+import contextvars
 import hashlib
 import json
 import multiprocessing
@@ -18,6 +19,10 @@ from beets.library import Library, Item, parse_query_string
 from beets.ui import Subcommand, decargs
 from beetsplug.xtractor import helper
 from confuse import Subview
+
+
+BPM_FIELD = "bpm"
+BPM_BEHAVIORS = ["force", "if_empty", "if_similar", "never"]
 
 
 class XtractorCommand(Subcommand):
@@ -48,6 +53,9 @@ class XtractorCommand(Subcommand):
         self.cfg_version = False
         self.cfg_count_only = False
         self.cfg_quiet = cfg.get("quiet")
+        self.cfg_field_prefix = helper.get_field_prefix(self.config)
+        self.cfg_prefix_bpm_behavior = self.config["prefix_bpm_behavior"].as_choice(BPM_BEHAVIORS)
+        self.cfg_prefix_bpm_max_difference = self.config["prefix_bpm_max_difference"].as_number()
 
         self.parser = OptionParser(
             usage='beet {plg} [options] [QUERY...]'.format(
@@ -65,7 +73,7 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-w', '--write',
             action='store_true', dest='write', default=self.cfg_write,
-            help=u'[default: {}] write the extracted values (bpm) to the media '
+            help=u'[default: {}] write the extracted values to the media '
                  u'files'.format(
                 self.cfg_write)
         )
@@ -81,7 +89,7 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-f', '--force',
             action='store_true', dest='force', default=self.cfg_force,
-            help=u'[default: {}] force analysis of items with non-zero bpm values'.format(self.cfg_force)
+            help=u'[default: {}] force analysis of already analysed items'.format(self.cfg_force)
         )
 
         self.parser.add_option(
@@ -163,8 +171,9 @@ class XtractorCommand(Subcommand):
                 target_map = self.config[map_key]
                 for fld in target_map:
                     if target_map[fld]["required"].exists() and target_map[fld]["required"].get(bool):
-                        fast = fld in Item._fields
-                        query_item = dbcore.query.MatchQuery(fld, None, fast=fast)
+                        field_name = self.cfg_field_prefix + fld
+                        fast = field_name in Item._fields
+                        query_item = dbcore.query.NoneQuery(field_name, fast=fast)
                         subqueries.append(query_item)
 
             unprocessed_items_query = dbcore.query.OrQuery(subqueries)
@@ -235,12 +244,33 @@ class XtractorCommand(Subcommand):
 
         # Update and Store Item
         if not self.cfg_dry_run:
-            for attr in audiodata.keys():
-                if audiodata.get(attr):
-                    setattr(item, attr, audiodata.get(attr))
+            for attr, value in audiodata.items():
+                if value is not None:
+                    setattr(item, self.cfg_field_prefix + attr, value)
+                    if attr == BPM_FIELD and self._should_update_bpm(item.get(BPM_FIELD), value):
+                        setattr(item, BPM_FIELD, value)
             item.store()
 
         return True
+
+    def _should_update_bpm(self, current_bpm, extracted_bpm):
+        """decides if the `bpm` field of beets gets the extracted value in
+        addition to the prefixed field (see `prefix_bpm_behavior`)
+        """
+        if not self.cfg_field_prefix:
+            # The value has already been stored in the `bpm` field
+            return False
+
+        if self.cfg_prefix_bpm_behavior == "force":
+            return True
+        if self.cfg_prefix_bpm_behavior == "never":
+            return False
+        if not current_bpm:
+            return True
+        if self.cfg_prefix_bpm_behavior == "if_similar":
+            return abs(current_bpm - extracted_bpm) <= self.cfg_prefix_bpm_max_difference
+
+        return False
 
     def _run_essentia_extractor(self, extractor_path, input_path, output_path, profile_path):
         if os.path.isfile(output_path):
@@ -268,10 +298,18 @@ class XtractorCommand(Subcommand):
     def _execute_on_each_items(self, items, func):
         total = len(items)
         finished = 0
+
+        # Worker threads start with an empty context, which makes beets lose
+        # the library directory it resolves relative item paths against.
+        ctx = contextvars.copy_context()
+
+        def func_in_context(item):
+            return ctx.copy().run(func, item)
+
         with futures.ThreadPoolExecutor(max_workers=self.cfg_threads) as e:
             if total and not self.cfg_quiet:
                 self._show_progress(finished, total)
-            for _ in e.map(func, items):
+            for _ in e.map(func_in_context, items):
                 finished += 1
                 if not self.cfg_quiet:
                     self._show_progress(finished, total)

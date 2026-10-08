@@ -6,6 +6,15 @@ force: no
 quiet: no
 keep_output: no
 keep_profiles: no
+# Prepended to the name of every field below (e.g. "xtractor_")
+field_prefix: ""
+# What happens to the `bpm` field of beets when a prefix is set:
+#   force:      always overwrite it
+#   if_empty:   only set it when the item has no bpm yet
+#   if_similar: like if_empty, but also overwrite a bpm that differs by at most prefix_bpm_max_difference
+#   never:      leave it alone
+prefix_bpm_behavior: force
+prefix_bpm_max_difference: 2
 low_level_targets:
   bpm:
     path: "rhythm.bpm"
