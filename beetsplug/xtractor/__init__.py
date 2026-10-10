@@ -8,45 +8,18 @@ import os
 
 from beets.plugins import BeetsPlugin
 from beets.dbcore import types
+from beets.library import Item
 from confuse import ConfigSource, load_yaml
+from beetsplug.xtractor import helper
 from beetsplug.xtractor.command import XtractorCommand
 
 
 class XtractorPlugin(BeetsPlugin):
     _default_plugin_config_file_name_ = 'config_default.yml'
-    item_types = {
-        'average_loudness': types.Float(6),
-        'beats_count': types.INTEGER,
-        # 'chords_changes_rate': types.Float(6),
-        # 'chords_key': types.STRING,
-        # 'chords_number_rate': types.Float(6),
-        # 'chords_scale': types.STRING,
-        # 'key_strength': types.Float(6),
-        'danceable': types.Float(6),
-        'danceability': types.Float(6),
-        'gender': types.STRING,
-        'is_male': types.Float(6),
-        'is_female': types.Float(6),
-        'genre_rosamerica': types.STRING,
-        'mood_acoustic': types.Float(6),
-        'mood_aggressive': types.Float(6),
-        'mood_electronic': types.Float(6),
-        'mood_happy': types.Float(6),
-        'mood_party': types.Float(6),
-        'mood_relaxed': types.Float(6),
-        'mood_sad': types.Float(6),
-        'mood_mirex': types.STRING,
-        'mood_mirex_cluster_1': types.Float(6),
-        'mood_mirex_cluster_2': types.Float(6),
-        'mood_mirex_cluster_3': types.Float(6),
-        'mood_mirex_cluster_4': types.Float(6),
-        'mood_mirex_cluster_5': types.Float(6),
-        # 'rhythm': types.Float(6),
-        # 'timbre': types.STRING,
-        # 'tonal': types.Float(6),
-        'voice_instrumental': types.STRING,
-        'is_instrumental': types.Float(6),
-        'is_voice': types.Float(6),
+    _target_types = {
+        'float': types.Float(6),
+        'integer': types.INTEGER,
+        'string': types.STRING,
     }
 
     def __init__(self):
@@ -54,6 +27,7 @@ class XtractorPlugin(BeetsPlugin):
         config_file_path = os.path.join(os.path.dirname(__file__), self._default_plugin_config_file_name_)
         source = ConfigSource(load_yaml(config_file_path) or {}, config_file_path)
         self.config.add(source)
+        self.item_types = self._build_item_types()
 
         # @todo: activate this to store the attributes in media files
         # field = mediafile.MediaField(
@@ -65,6 +39,23 @@ class XtractorPlugin(BeetsPlugin):
         #     mediafile.MP3DescStorageStyle(u'beats_count'), mediafile.StorageStyle(u'beats_count')
         # )
         # self.add_media_field('beats_count', field)
+
+    def _build_item_types(self):
+        """registers the type of each field defined in the
+        `low_level_targets` / `high_level_targets` configuration keys
+        """
+        prefix = helper.get_field_prefix(self.config)
+        item_types = {}
+        for map_key in ["low_level_targets", "high_level_targets"]:
+            if not self.config[map_key].exists():
+                continue
+            for fld, target in self.config[map_key].flatten().items():
+                target_type = self._target_types.get((target or {}).get("type"))
+                # Fields of beets itself (like `bpm`) already have their type
+                if target_type and prefix + fld not in Item._fields:
+                    item_types[prefix + fld] = target_type
+
+        return item_types
 
     def commands(self):
         return [XtractorCommand(self.config)]
