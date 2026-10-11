@@ -5,8 +5,10 @@ import stat
 import sys
 import threading
 import wave
+from unittest.mock import patch
 
 import yaml
+from confuse import ConfigError
 from beets import context, plugins
 from beets.dbcore import types
 from beets.library import Item
@@ -17,6 +19,7 @@ from mediafile import MediaFile
 from test.helper import TestHelper, Assertions, PLUGIN_NAME
 
 FIELD_PREFIX = "xtractor_"
+BPM_BEHAVIORS = ["force", "if_empty", "if_similar", "never"]
 
 DEFAULT_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "beetsplug", "xtractor", "config_default.yml")
@@ -81,6 +84,16 @@ class ItemTypesTest(TestHelper, Assertions):
 
         self.assertEqual(set(self._default_targets()), set(plugin._build_item_types()))
         self.assertEqual("", XtractorCommand(self.config[PLUGIN_NAME]).cfg_field_prefix)
+
+    def test_bpm_is_forced_by_default(self):
+        self.assertEqual("force", self._default_config()["prefix_bpm_behavior"])
+        self.assertEqual(2, self._default_config()["prefix_bpm_max_difference"])
+
+    def test_unknown_bpm_behavior_is_rejected(self):
+        self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = "sometimes"
+
+        with self.assertRaises(ConfigError):
+            XtractorCommand(self.config[PLUGIN_NAME])
 
     def test_item_types_are_built_from_the_default_configuration(self):
         plugin = plugins.find_plugins()[0]
@@ -159,8 +172,10 @@ class XtractionTest(TestHelper, Assertions):
                 pass
             self.lib.add(Item(path=path.encode(), title="track{}".format(i)))
 
-    def _use_prefix(self):
+    def _use_prefix(self, bpm_behavior=None):
         self.config[PLUGIN_NAME]["field_prefix"] = FIELD_PREFIX
+        if bpm_behavior:
+            self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = bpm_behavior
 
         # beets reads the configuration before it loads the plugin, the tests set the prefix afterwards
         plugin = plugins.find_plugins()[0]
@@ -174,6 +189,11 @@ class XtractionTest(TestHelper, Assertions):
         cmd.query = []
         cmd.cfg_threads = threads
         return cmd
+
+    def _set_bpm(self, bpm):
+        item = self.lib.items().get()
+        item.bpm = bpm
+        item.store()
 
     def _stored_paths(self):
         with sqlite3.connect(os.fsdecode(self.lib.path)) as conn:
@@ -282,7 +302,7 @@ class XtractionTest(TestHelper, Assertions):
         self.assertEqual(["album/track0.flac", "album/track1.flac", "album/track2.flac"], self._stored_paths())
 
     def test_threaded_analysis_stores_prefixed_fields(self):
-        self._use_prefix()
+        self._use_prefix(bpm_behavior="never")
         self._add_items(3)
 
         self._create_command(threads=3).xtract()
@@ -295,7 +315,8 @@ class XtractionTest(TestHelper, Assertions):
             self.assertEqual(1.25, item.get("xtractor_danceability"))
             self.assertEqual("male", item.get("xtractor_gender"))
             self.assertEqual(0.4, item.get("xtractor_mood_mirex_cluster_3"))
-            # The names without the prefix are left to other plugins
+            # The fields owned by beets and other plugins are left alone
+            self.assertEqual(0, item.get("bpm"))
             self.assertIsNone(item.get("danceability"))
             self.assertIsNone(item.get("gender"))
 
@@ -329,3 +350,71 @@ class XtractionTest(TestHelper, Assertions):
 
         cmd.find_items_to_analyse()
         self.assertEqual(0, len(cmd.items_to_analyse))
+
+    def test_bpm_behavior_with_prefix(self):
+        # The fake extractor reports 128: 126 is within the allowed difference of 2, 125 and 90 are not
+        expectations = {
+            "force": {0: 128, 126: 128, 125: 128, 90: 128},
+            "if_empty": {0: 128, 126: 126, 125: 125, 90: 90},
+            "if_similar": {0: 128, 126: 128, 125: 125, 90: 90},
+            "never": {0: 0, 126: 126, 125: 125, 90: 90},
+        }
+        self.assertEqual(set(BPM_BEHAVIORS), set(expectations))
+        self._add_items(1)
+
+        for behavior, cases in expectations.items():
+            for existing_bpm, expected_bpm in cases.items():
+                with self.subTest(behavior=behavior, existing_bpm=existing_bpm):
+                    self._use_prefix(bpm_behavior=behavior)
+                    self._set_bpm(existing_bpm)
+                    cmd = self._create_command()
+                    cmd.cfg_force = True
+
+                    cmd.xtract()
+
+                    item = self.lib.items().get()
+                    self.assertEqual(expected_bpm, item.get("bpm"))
+                    self.assertEqual(128, item.get("xtractor_bpm"))
+
+    def test_bpm_max_difference_is_configurable(self):
+        self._use_prefix(bpm_behavior="if_similar")
+        self.config[PLUGIN_NAME]["prefix_bpm_max_difference"] = 40
+        self._add_items(1)
+        self._set_bpm(90)
+
+        self._create_command().xtract()
+
+        self.assertEqual(128, self.lib.items().get().get("bpm"))
+
+    def test_bpm_behavior_is_ignored_without_prefix(self):
+        self._add_items(1)
+
+        for behavior in BPM_BEHAVIORS:
+            with self.subTest(behavior=behavior):
+                self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = behavior
+                self._set_bpm(90)
+                cmd = self._create_command()
+                cmd.cfg_force = True
+
+                cmd.xtract()
+
+                self.assertEqual(128, self.lib.items().get().get("bpm"))
+
+    def test_bpm_reaches_the_media_file_only_when_updated(self):
+        self._add_items(1)
+        self._set_bpm(90)
+        written = []
+
+        def try_write(item, path=None, **kwargs):
+            written.append(item.bpm)
+            return True
+
+        for behavior, expected_bpm in [("never", 90), ("force", 128)]:
+            self._use_prefix(bpm_behavior=behavior)
+            cmd = self._create_command()
+            cmd.cfg_force = True
+            cmd.cfg_write = True
+            with patch.object(Item, "try_write", try_write):
+                cmd.xtract()
+
+            self.assertEqual(expected_bpm, written[-1])
