@@ -121,11 +121,24 @@ fail when both plugins are loaded. Set `field_prefix` to store all attributes of
 ```yaml
 xtractor:
     field_prefix: xtractor_
+    prefix_bpm_behavior: if_empty
 ```
 
 With this configuration the attributes become `xtractor_bpm`, `xtractor_danceability` and so on. The prefix is empty by
 default. Attributes stored before you set (or changed) the prefix keep their old names and are not picked up any more,
 so your items will be analysed again.
+
+With a prefix, the extracted tempo always goes to the prefixed attribute (`xtractor_bpm`). The `prefix_bpm_behavior`
+option decides what additionally happens to the `bpm` field of beets, which is the one that the `write` option puts into
+the media file:
+
+- `force` (default): always overwrite `bpm`.
+- `if_empty`: set `bpm` only if the item has none yet.
+- `if_similar`: like `if_empty`, but also overwrite a `bpm` that differs from the extracted value by no more than
+  `prefix_bpm_max_difference` (default: 2). A clearly different value, like one you entered yourself, is kept.
+- `never`: never touch `bpm`.
+
+Without a prefix these options have no effect: the tempo is stored straight in `bpm`.
 
 **NOTE**: Please note that the `auto` option is not yet implemented. For now you will have to call the xtractor plugin manually.
 

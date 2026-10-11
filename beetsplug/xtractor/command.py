@@ -21,6 +21,10 @@ from beetsplug.xtractor import helper
 from confuse import Subview
 
 
+BPM_FIELD = "bpm"
+BPM_BEHAVIORS = ["force", "if_empty", "if_similar", "never"]
+
+
 class XtractorCommand(Subcommand):
     config: Subview = None
 
@@ -50,6 +54,8 @@ class XtractorCommand(Subcommand):
         self.cfg_count_only = False
         self.cfg_quiet = cfg.get("quiet")
         self.cfg_field_prefix = helper.get_field_prefix(self.config)
+        self.cfg_prefix_bpm_behavior = self.config["prefix_bpm_behavior"].as_choice(BPM_BEHAVIORS)
+        self.cfg_prefix_bpm_max_difference = self.config["prefix_bpm_max_difference"].as_number()
 
         self.parser = OptionParser(
             usage='beet {plg} [options] [QUERY...]'.format(
@@ -241,9 +247,30 @@ class XtractorCommand(Subcommand):
             for attr, value in audiodata.items():
                 if value is not None:
                     setattr(item, self.cfg_field_prefix + attr, value)
+                    if attr == BPM_FIELD and self._should_update_bpm(item.get(BPM_FIELD), value):
+                        setattr(item, BPM_FIELD, value)
             item.store()
 
         return True
+
+    def _should_update_bpm(self, current_bpm, extracted_bpm):
+        """decides if the `bpm` field of beets gets the extracted value in
+        addition to the prefixed field (see `prefix_bpm_behavior`)
+        """
+        if not self.cfg_field_prefix:
+            # The value has already been stored in the `bpm` field
+            return False
+
+        if self.cfg_prefix_bpm_behavior == "force":
+            return True
+        if self.cfg_prefix_bpm_behavior == "never":
+            return False
+        if not current_bpm:
+            return True
+        if self.cfg_prefix_bpm_behavior == "if_similar":
+            return abs(current_bpm - extracted_bpm) <= self.cfg_prefix_bpm_max_difference
+
+        return False
 
     def _run_essentia_extractor(self, extractor_path, input_path, output_path, profile_path):
         if os.path.isfile(output_path):
