@@ -24,14 +24,17 @@ BPM_BEHAVIORS = ["force", "if_empty", "if_similar", "never"]
 DEFAULT_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "beetsplug", "xtractor", "config_default.yml")
 
-# What the fake extractor reports for every file
+# What the fake extractor reports for every file (it has no model for `genre_electronic`)
 EXTRACTOR_OUTPUT = {
     "rhythm": {"bpm": 127.6, "danceability": 1.25, "beats_count": 512},
     "lowlevel": {"average_loudness": 0.8},
+    "tonal": {"key_edma": {"key": "C#", "scale": "minor", "strength": 0.7}},
     "highlevel": {
         "danceability": {"all": {"danceable": 0.9}},
         "gender": {"value": "male", "all": {"male": 0.8, "female": 0.2}},
-        "genre_rosamerica": {"value": "roc"},
+        "genre_rosamerica": {"value": "roc", "probability": 0.6},
+        "tonal_atonal": {"value": "tonal"},
+        "timbre": {"value": "dark"},
         "voice_instrumental": {"value": "voice", "all": {"voice": 0.7, "instrumental": 0.3}},
         "mood_acoustic": {"all": {"acoustic": 0.1}},
         "mood_aggressive": {"all": {"aggressive": 0.2}},
@@ -77,6 +80,19 @@ class ItemTypesTest(TestHelper, Assertions):
         self.assertIsInstance(item_types["xtractor_danceability"], types.Float)
         for fld in item_types:
             self.assertNotIn(fld, Item._fields)
+
+    def test_additional_fields_are_optional(self):
+        cfg = self._default_config()
+        additional = {
+            "low_level_targets": ["key_edma", "key_edma_scale"],
+            "high_level_targets": ["tonal_atonal", "timbre", "genre_rosamerica_probability",
+                                   "genre_electronic", "genre_electronic_probability"],
+        }
+
+        for map_key, fields in additional.items():
+            for fld in fields:
+                self.assertIn(fld, cfg[map_key])
+                self.assertFalse(cfg[map_key][fld].get("required", False), msg=fld)
 
     def test_empty_prefix_in_user_configuration(self):
         self.config[PLUGIN_NAME]["field_prefix"] = None
@@ -297,6 +313,15 @@ class XtractionTest(TestHelper, Assertions):
             self.assertEqual("Cluster3", item.get("mood_mirex"))
             self.assertEqual(0.4, item.get("mood_mirex_cluster_3"))
             self.assertIsNone(item.get("xtractor_bpm"))
+            self.assertEqual("C#", item.get("key_edma"))
+            self.assertEqual("minor", item.get("key_edma_scale"))
+            self.assertEqual("tonal", item.get("tonal_atonal"))
+            self.assertEqual("dark", item.get("timbre"))
+            self.assertEqual("roc", item.get("genre_rosamerica"))
+            self.assertEqual(0.6, item.get("genre_rosamerica_probability"))
+            # Values missing in the output of the extractor are skipped
+            self.assertIsNone(item.get("genre_electronic"))
+            self.assertIsNone(item.get("genre_electronic_probability"))
 
         # The paths must stay relative to the library directory
         self.assertEqual(["album/track0.flac", "album/track1.flac", "album/track2.flac"], self._stored_paths())
