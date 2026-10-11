@@ -73,7 +73,7 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-w', '--write',
             action='store_true', dest='write', default=self.cfg_write,
-            help=u'[default: {}] write the extracted values (bpm) to the media '
+            help=u'[default: {}] write the extracted values to the media '
                  u'files'.format(
                 self.cfg_write)
         )
@@ -89,7 +89,7 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-f', '--force',
             action='store_true', dest='force', default=self.cfg_force,
-            help=u'[default: {}] force analysis of items with non-zero bpm values'.format(self.cfg_force)
+            help=u'[default: {}] force analysis of already analysed items'.format(self.cfg_force)
         )
 
         self.parser.add_option(
