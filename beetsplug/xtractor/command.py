@@ -3,6 +3,7 @@
 #  License: See LICENSE.txt
 
 from concurrent import futures
+import contextvars
 import hashlib
 import json
 import multiprocessing
@@ -268,10 +269,18 @@ class XtractorCommand(Subcommand):
     def _execute_on_each_items(self, items, func):
         total = len(items)
         finished = 0
+
+        # Worker threads start with an empty context, which makes beets lose
+        # the library directory it resolves relative item paths against.
+        ctx = contextvars.copy_context()
+
+        def func_in_context(item):
+            return ctx.copy().run(func, item)
+
         with futures.ThreadPoolExecutor(max_workers=self.cfg_threads) as e:
             if total and not self.cfg_quiet:
                 self._show_progress(finished, total)
-            for _ in e.map(func, items):
+            for _ in e.map(func_in_context, items):
                 finished += 1
                 if not self.cfg_quiet:
                     self._show_progress(finished, total)
