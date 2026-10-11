@@ -6,12 +6,17 @@ import sys
 import threading
 import wave
 
-from beets import context
+import yaml
+from beets import context, plugins
+from beets.dbcore import types
 from beets.library import Item
 from beetsplug.xtractor.command import XtractorCommand
 from mediafile import MediaFile
 
 from test.helper import TestHelper, Assertions, PLUGIN_NAME
+
+DEFAULT_CONFIG_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "beetsplug", "xtractor", "config_default.yml")
 
 # What the fake extractor reports for every file
 EXTRACTOR_OUTPUT = {
@@ -33,6 +38,54 @@ EXTRACTOR_OUTPUT = {
             "Cluster1": 0.1, "Cluster2": 0.2, "Cluster3": 0.4, "Cluster4": 0.2, "Cluster5": 0.1}},
     },
 }
+
+
+class ItemTypesTest(TestHelper, Assertions):
+    """Test the field types derived from the configured targets.
+    """
+
+    def _default_targets(self):
+        with open(DEFAULT_CONFIG_PATH) as f:
+            cfg = yaml.safe_load(f)
+        return {**cfg["low_level_targets"], **cfg["high_level_targets"]}
+
+    def test_item_types_are_built_from_the_default_configuration(self):
+        plugin = plugins.find_plugins()[0]
+        type_names = {types.INTEGER: "integer", types.STRING: "string"}
+
+        self.assertEqual(set(self._default_targets()), set(plugin.item_types))
+        for fld, target in self._default_targets().items():
+            item_type = plugin.item_types[fld]
+            if target["type"] == "float":
+                self.assertIsInstance(item_type, types.Float, msg=fld)
+            else:
+                self.assertEqual(target["type"], type_names.get(item_type), msg=fld)
+
+    def test_item_types_follow_user_defined_targets(self):
+        self.config[PLUGIN_NAME]["low_level_targets"]["my_key"] = {"path": "tonal.key_key", "type": "string"}
+        self.config[PLUGIN_NAME]["high_level_targets"]["my_count"] = {"path": "rhythm.count", "type": "integer"}
+        plugin = plugins.find_plugins()[0]
+
+        item_types = plugin._build_item_types()
+
+        self.assertEqual(types.STRING, item_types["my_key"])
+        self.assertEqual(types.INTEGER, item_types["my_count"])
+        self.assertEqual(set(self._default_targets()) | {"my_key", "my_count"}, set(item_types))
+
+    def test_item_types_default_to_float(self):
+        self.config[PLUGIN_NAME]["low_level_targets"]["my_untyped"] = {"path": "tonal.whatever"}
+        self.config[PLUGIN_NAME]["low_level_targets"]["my_unknown"] = {"path": "tonal.whatever", "type": "tuple"}
+        plugin = plugins.find_plugins()[0]
+
+        item_types = plugin._build_item_types()
+
+        self.assertIsInstance(item_types["my_untyped"], types.Float)
+        self.assertIsInstance(item_types["my_unknown"], types.Float)
+
+    def test_item_types_are_known_to_beets(self):
+        self.assertEqual(types.INTEGER, Item._types["beats_count"])
+        self.assertEqual(types.STRING, Item._types["mood_mirex"])
+        self.assertIsInstance(Item._types["danceable"], types.Float)
 
 
 class XtractionTest(TestHelper, Assertions):
