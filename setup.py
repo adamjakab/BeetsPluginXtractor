@@ -44,14 +44,9 @@ setup(
         'pyyaml'
     ],
 
-    tests_require=[
-        'pytest', 'nose', 'coverage',
-        'mock', 'six', 'pyyaml',
-    ],
-
     # Extras needed during testing
     extras_require={
-        'tests': [],
+        'tests': ['pytest', 'six'],
     },
 
     classifiers=[
