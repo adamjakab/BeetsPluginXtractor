@@ -201,6 +201,23 @@ class XtractionTest(TestHelper, Assertions):
 
         self.assertEqual([], os.listdir(self.output_dir))
 
+    def test_zero_values_are_stored(self):
+        self._write_extractor({**EXTRACTOR_OUTPUT, "lowlevel": {"average_loudness": 0.0}})
+        self._add_items(1)
+        cmd = self._create_command()
+
+        cmd.xtract()
+
+        with sqlite3.connect(os.fsdecode(self.lib.path)) as conn:
+            rows = conn.execute(
+                "select value from item_attributes where key = 'average_loudness'").fetchall()
+        self.assertEqual(1, len(rows))
+        self.assertEqual(0.0, float(rows[0][0]))
+
+        # A required field with a falsy value does not make the item unprocessed
+        cmd.find_items_to_analyse()
+        self.assertEqual(0, len(cmd.items_to_analyse))
+
     def test_threaded_analysis_stores_fields(self):
         self._add_items(3)
         self.assertEqual(["album/track0.flac", "album/track1.flac", "album/track2.flac"], self._stored_paths())
