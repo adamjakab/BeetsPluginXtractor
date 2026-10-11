@@ -10,10 +10,13 @@ The _beets-xtractor_ plugin lets you, through the use of the [Essentia](https://
 to obtain low and high level musical information from your songs.
 
 Currently, the following attributes are extracted for each library item:
-`bpm`, `danceability`, `beats_count`, `average_loudness`, `danceable`, `gender`, `is_male`, `is_female`,
-`genre_rosamerica`, `voice_instrumental`, `is_voice`, `is_instrumental`, `mood_acoustic`,
+`bpm`, `danceability`, `beats_count`, `average_loudness`, `key_edma`, `key_edma_scale`, `tonal_atonal`,
+`voice_instrumental`, `is_voice`, `is_instrumental`, `gender`, `is_male`, `is_female`, `timbre`, `danceable`,
+`genre_rosamerica`, `genre_rosamerica_probability`, `genre_electronic`, `genre_electronic_probability`, `mood_acoustic`,
 `mood_aggressive`, `mood_electronic`, `mood_happy`, `mood_sad`, `mood_party`, `mood_relaxed`, `mood_mirex`,
 `mood_mirex_cluster_1`, `mood_mirex_cluster_2`, `mood_mirex_cluster_3`, `mood_mirex_cluster_4`, `mood_mirex_cluster_5`
+
+An attribute is only stored if the extractor reports it, so the high level ones depend on the SVM models you configure.
 
 The names can be [prefixed](#coexistence-with-other-plugins) to keep them apart from the fields of other plugins.
 
