@@ -49,6 +49,7 @@ class XtractorCommand(Subcommand):
         self.cfg_version = False
         self.cfg_count_only = False
         self.cfg_quiet = cfg.get("quiet")
+        self.cfg_field_prefix = helper.get_field_prefix(self.config)
 
         self.parser = OptionParser(
             usage='beet {plg} [options] [QUERY...]'.format(
@@ -164,8 +165,9 @@ class XtractorCommand(Subcommand):
                 target_map = self.config[map_key]
                 for fld in target_map:
                     if target_map[fld]["required"].exists() and target_map[fld]["required"].get(bool):
-                        fast = fld in Item._fields
-                        query_item = dbcore.query.NoneQuery(fld, fast=fast)
+                        field_name = self.cfg_field_prefix + fld
+                        fast = field_name in Item._fields
+                        query_item = dbcore.query.NoneQuery(field_name, fast=fast)
                         subqueries.append(query_item)
 
             unprocessed_items_query = dbcore.query.OrQuery(subqueries)
@@ -238,7 +240,7 @@ class XtractorCommand(Subcommand):
         if not self.cfg_dry_run:
             for attr, value in audiodata.items():
                 if value is not None:
-                    setattr(item, attr, value)
+                    setattr(item, self.cfg_field_prefix + attr, value)
             item.store()
 
         return True

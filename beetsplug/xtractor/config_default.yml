@@ -6,6 +6,8 @@ force: no
 quiet: no
 keep_output: no
 keep_profiles: no
+# Prepended to the name of every field below (e.g. "xtractor_")
+field_prefix: ""
 low_level_targets:
     bpm:
         path: "rhythm.bpm"
