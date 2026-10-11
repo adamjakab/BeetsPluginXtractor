@@ -115,6 +115,11 @@ The `write` option instructs the plugin to write the extracted attributes to the
 
 The `dry-run` option shows what would be done without actually doing it.
 
+The attributes to extract are defined in the `low_level_targets` and `high_level_targets` sections. Each key is the
+name of the attribute, `path` points to the value in the extractor output and `type` is one of `float`, `integer` or
+`string`. Items missing an attribute marked with `required: yes` are picked up for analysis. Have a look at the
+[default configuration](beetsplug/xtractor/config_default.yml) for the full list.
+
 ### Coexistence with other plugins
 
 Some of the attribute names are also used by other plugins. As an example,
