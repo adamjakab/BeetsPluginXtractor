@@ -51,7 +51,7 @@ class CompletionTest(TestHelper, Assertions):
     def test_run_plugin(self):
         with capture_log(plg_log_ns) as logs:
             self.runcli(PLUGIN_NAME)
-        self.assertIn("xtractor: No items to process", "\n".join(logs))
+        self.assertIn("No items to process", "\n".join(logs))
 
     def test_plugin_version(self):
         with capture_log(plg_log_ns) as logs:

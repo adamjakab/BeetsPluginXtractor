@@ -15,7 +15,7 @@ import yaml
 
 from beets import dbcore
 from beets.library import Library, Item, parse_query_string
-from beets.ui import Subcommand, decargs
+from beets.ui import Subcommand
 from beetsplug.xtractor import helper
 from confuse import Subview
 
@@ -126,7 +126,7 @@ class XtractorCommand(Subcommand):
             self._say("Adjusting max threads to CPU count: {0}".format(self.cfg_threads), True)
 
         self.lib = lib
-        self.query = decargs(arguments)
+        self.query = arguments
 
         if options.version:
             self.show_version_information()
