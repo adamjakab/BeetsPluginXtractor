@@ -4,11 +4,12 @@ import sqlite3
 import stat
 import sys
 import threading
-from unittest.mock import patch
+import wave
 
 from beets import context
 from beets.library import Item
 from beetsplug.xtractor.command import XtractorCommand
+from mediafile import MediaFile
 
 from test.helper import TestHelper, Assertions, PLUGIN_NAME
 
@@ -43,6 +44,7 @@ class XtractionTest(TestHelper, Assertions):
         workdir = self.mkdtemp()
         self.output_dir = os.path.join(workdir, "output")
         os.makedirs(self.output_dir)
+        self.extractor_input_log = os.path.join(workdir, "extractor_inputs")
 
         self.extractor_path = os.path.join(workdir, "fake_extractor")
         self._write_extractor(EXTRACTOR_OUTPUT)
@@ -56,6 +58,9 @@ class XtractionTest(TestHelper, Assertions):
         with open(self.extractor_path, "w") as f:
             f.write("#!{}\n".format(sys.executable))
             f.write("import sys\n")
+            f.write("with open({!r}, 'a') as path_file:\n".format(self.extractor_input_log))
+            f.write("    path_file.write(sys.argv[1])\n")
+            f.write("    path_file.write('\\n')\n")
             f.write("with open(sys.argv[2], 'w') as out:\n")
             f.write("    out.write({!r})\n".format(json.dumps(output)))
         os.chmod(self.extractor_path, os.stat(self.extractor_path).st_mode | stat.S_IXUSR)
@@ -97,25 +102,33 @@ class XtractionTest(TestHelper, Assertions):
             self.assertTrue(os.path.isabs(filepath), msg="Relative path in worker: {}".format(filepath))
             self.assertIsFile(filepath)
 
-    def test_threaded_write_gets_the_absolute_path(self):
-        self._add_items(2)
+    def test_threaded_extraction_writes_tags_and_preserves_relative_paths(self):
+        paths = [
+            os.path.join(os.fsdecode(self.libdir), "album", "track{}.wav".format(i))
+            for i in range(2)
+        ]
+        for path in paths:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with wave.open(path, "wb") as audio:
+                audio.setnchannels(1)
+                audio.setsampwidth(2)
+                audio.setframerate(8000)
+                audio.writeframes(b"\x00\x00" * 8000)
+            self.lib.add(Item(path=os.fsencode(path), title="track"))
+
+        relative_paths = ["album/track0.wav", "album/track1.wav"]
+        self.assertEqual(relative_paths, self._stored_paths())
         cmd = self._create_command(threads=2)
         cmd.cfg_write = True
-        written = []
 
-        def try_write(item, path=None, **kwargs):
-            written.append((path, context.get_music_dir(), item.path))
-            return True
+        cmd.xtract()
 
-        with patch.object(Item, "try_write", try_write):
-            cmd.xtract()
-
-        self.assertEqual(2, len(written))
-        for path, music_dir, item_path in written:
-            self.assertTrue(os.path.isabs(path))
-            self.assertIsFile(path)
-            self.assertEqual(self.lib.directory, music_dir)
-            self.assertTrue(os.path.isabs(item_path))
+        with open(self.extractor_input_log) as path_file:
+            extracted_paths = set(path_file.read().splitlines())
+        self.assertEqual(set(paths), extracted_paths)
+        for path in paths:
+            self.assertEqual(128, MediaFile(path).bpm)
+        self.assertEqual(relative_paths, self._stored_paths())
 
     def test_dry_run_stores_nothing(self):
         self._add_items(1)
