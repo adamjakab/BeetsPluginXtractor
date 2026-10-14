@@ -3,6 +3,7 @@
 #  License: See LICENSE.txt
 
 from concurrent import futures
+import contextvars
 import hashlib
 import json
 import multiprocessing
@@ -188,7 +189,7 @@ class XtractorCommand(Subcommand):
         if not self._run_analysis(item, input_path):
             return
 
-        self._run_write_to_item(item, input_path)
+        self._run_write_to_item(item)
 
         # Delete output files (if config wants)
         if self.config["keep_output"].exists() and not self.config["keep_output"].get():
@@ -196,9 +197,9 @@ class XtractorCommand(Subcommand):
             if os.path.isfile(output_path):
                 os.unlink(output_path)
 
-    def _run_write_to_item(self, item, input_path):
+    def _run_write_to_item(self, item):
         if not self.cfg_dry_run and self.cfg_write:
-            item.try_write(path=input_path)
+            item.try_write()
 
     def _run_analysis(self, item, input_path):
         try:
@@ -268,10 +269,18 @@ class XtractorCommand(Subcommand):
     def _execute_on_each_items(self, items, func):
         total = len(items)
         finished = 0
+
+        # Worker threads start with an empty context, which makes beets lose
+        # the library directory it resolves relative item paths against.
+        ctx = contextvars.copy_context()
+
+        def func_in_context(item):
+            return ctx.copy().run(func, item)
+
         with futures.ThreadPoolExecutor(max_workers=self.cfg_threads) as e:
             if total and not self.cfg_quiet:
                 self._show_progress(finished, total)
-            for _ in e.map(func, items):
+            for _ in e.map(func_in_context, items):
                 finished += 1
                 if not self.cfg_quiet:
                     self._show_progress(finished, total)
@@ -294,9 +303,6 @@ class XtractorCommand(Subcommand):
 
     def _get_input_path_for_item(self, item: Item):
         input_path = os.fspath(item.filepath)
-
-        if not os.path.isabs(input_path):
-            input_path = os.path.join(os.fsdecode(self.lib.directory), input_path)
 
         if not os.path.isfile(input_path):
             raise FileNotFoundError("Input file({}) not found!".format(input_path))
