@@ -18,6 +18,10 @@ __logger__ = logging.getLogger(
     'beets.{plg}'.format(plg=plg_ns['__PLUGIN_NAME__']))
 
 
+def get_field_prefix(config: Subview):
+    return config["field_prefix"].get() or ""
+
+
 def extract_from_output(output_path, target_map: Subview):
     """extracts data from the json file as mapped out in the
     `low_level_targets` / `high_level_targets` configuration keys
