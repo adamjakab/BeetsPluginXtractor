@@ -9,6 +9,7 @@ import os
 from beets.plugins import BeetsPlugin
 from beets.dbcore import types
 from confuse import ConfigSource, load_yaml
+from beetsplug.xtractor import helper
 from beetsplug.xtractor.command import XtractorCommand
 
 
@@ -39,6 +40,8 @@ class XtractorPlugin(BeetsPlugin):
         formatting and typed queries like `danceable::0.5..1`).
 
         - Field names are taken from `low_level_targets`/`high_level_targets`.
+        - Apply `field_prefix` so types are registered under the actual
+          attribute name (not the config key).
         - Defaults to float when a target has no explicit `type`.
         """
         type_map = {
@@ -46,6 +49,7 @@ class XtractorPlugin(BeetsPlugin):
             'integer': types.INTEGER,
             'string': types.STRING,
         }
+        prefix = helper.get_field_prefix(self.config)
         item_types = {}
         for map_key in ['low_level_targets', 'high_level_targets']:
             if not self.config[map_key].exists():
@@ -53,7 +57,7 @@ class XtractorPlugin(BeetsPlugin):
             target_map = self.config[map_key]
             for fld in target_map:
                 type_str = target_map[fld]['type'].as_str() if target_map[fld]['type'].exists() else 'float'
-                item_types[fld] = type_map.get(type_str, types.Float(6))
+                item_types[prefix + fld] = type_map.get(type_str, types.Float(6))
         return item_types
 
     def commands(self):

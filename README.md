@@ -10,10 +10,15 @@ The _beets-xtractor_ plugin lets you, through the use of the [Essentia](https://
 to obtain low and high level musical information from your songs.
 
 Currently, the following attributes are extracted for each library item:
-`bpm`, `danceability`, `beats_count`, `average_loudness`, `danceable`, `gender`, `is_male`, `is_female`,
-`genre_rosamerica`, `voice_instrumental`, `is_voice`, `is_instrumental`, `mood_acoustic`,
+`bpm`, `danceability`, `beats_count`, `average_loudness`, `key_edma`, `key_edma_scale`, `tonal_atonal`,
+`voice_instrumental`, `is_voice`, `is_instrumental`, `gender`, `is_male`, `is_female`, `timbre`, `danceable`,
+`genre_rosamerica`, `genre_rosamerica_probability`, `genre_electronic`, `genre_electronic_probability`, `mood_acoustic`,
 `mood_aggressive`, `mood_electronic`, `mood_happy`, `mood_sad`, `mood_party`, `mood_relaxed`, `mood_mirex`,
 `mood_mirex_cluster_1`, `mood_mirex_cluster_2`, `mood_mirex_cluster_3`, `mood_mirex_cluster_4`, `mood_mirex_cluster_5`
+
+An attribute is only stored if the extractor reports it, so the high level ones depend on the SVM models you configure.
+
+The names can be [prefixed](#coexistence-with-other-plugins) to keep them apart from the fields of other plugins.
 
 ## Installation
 
@@ -109,6 +114,39 @@ The extraction is quite a CPU intensive process so there might be cases when you
 The `write` option instructs the plugin to write the extracted attributes to the media file right away. Note that only `bpm` is actually written to the media file, all the other attributes are flex attributes and are only stored in the database.
 
 The `dry-run` option shows what would be done without actually doing it.
+
+The attributes to extract are defined in the `low_level_targets` and `high_level_targets` sections. Each key is the
+name of the attribute, `path` points to the value in the extractor output and `type` is one of `float`, `integer` or
+`string`. Items missing an attribute marked with `required: yes` are picked up for analysis. Have a look at the
+[default configuration](beetsplug/xtractor/config_default.yml) for the full list.
+
+### Coexistence with other plugins
+
+Some of the attribute names are also used by other plugins. As an example,
+[beets-vibenet](https://github.com/jaeheonshim/vibenet) defines `danceability` with a different type, which makes beets
+fail when both plugins are loaded. Set `field_prefix` to store all attributes of this plugin under their own names:
+
+```yaml
+xtractor:
+    field_prefix: xtractor_
+    prefix_bpm_behavior: if_empty
+```
+
+With this configuration the attributes become `xtractor_bpm`, `xtractor_danceability` and so on. The prefix is empty by
+default. Attributes stored before you set (or changed) the prefix keep their old names and are not picked up any more,
+so your items will be analysed again.
+
+With a prefix, the extracted tempo always goes to the prefixed attribute (`xtractor_bpm`). The `prefix_bpm_behavior`
+option decides what additionally happens to the `bpm` field of beets, which is the one that the `write` option puts into
+the media file:
+
+- `force` (default): always overwrite `bpm`.
+- `if_empty`: set `bpm` only if the item has none yet.
+- `if_similar`: like `if_empty`, but also overwrite a `bpm` that differs from the extracted value by no more than
+  `prefix_bpm_max_difference` (default: 2). A clearly different value, like one you entered yourself, is kept.
+- `never`: never touch `bpm`.
+
+Without a prefix these options have no effect: the tempo is stored straight in `bpm`.
 
 **NOTE**: Please note that the `auto` option is not yet implemented. For now you will have to call the xtractor plugin manually.
 

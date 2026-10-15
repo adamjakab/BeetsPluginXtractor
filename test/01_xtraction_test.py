@@ -5,27 +5,36 @@ import stat
 import sys
 import threading
 import wave
+from unittest.mock import patch
 
 import yaml
+from confuse import ConfigError
 from beets import context, plugins
 from beets.dbcore import types
 from beets.library import Item
+from beets.util import cached_classproperty
 from beetsplug.xtractor.command import XtractorCommand
 from mediafile import MediaFile
 
 from test.helper import TestHelper, Assertions, PLUGIN_NAME
 
+FIELD_PREFIX = "xtractor_"
+BPM_BEHAVIORS = ["force", "if_empty", "if_similar", "never"]
+
 DEFAULT_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "beetsplug", "xtractor", "config_default.yml")
 
-# What the fake extractor reports for every file
+# What the fake extractor reports for every file (it has no model for `genre_electronic`)
 EXTRACTOR_OUTPUT = {
     "rhythm": {"bpm": 127.6, "danceability": 1.25, "beats_count": 512},
     "lowlevel": {"average_loudness": 0.8},
+    "tonal": {"key_edma": {"key": "C#", "scale": "minor", "strength": 0.7}},
     "highlevel": {
         "danceability": {"all": {"danceable": 0.9}},
         "gender": {"value": "male", "all": {"male": 0.8, "female": 0.2}},
-        "genre_rosamerica": {"value": "roc"},
+        "genre_rosamerica": {"value": "roc", "probability": 0.6},
+        "tonal_atonal": {"value": "tonal"},
+        "timbre": {"value": "dark"},
         "voice_instrumental": {"value": "voice", "all": {"voice": 0.7, "instrumental": 0.3}},
         "mood_acoustic": {"all": {"acoustic": 0.1}},
         "mood_aggressive": {"all": {"aggressive": 0.2}},
@@ -44,10 +53,63 @@ class ItemTypesTest(TestHelper, Assertions):
     """Test the field types derived from the configured targets.
     """
 
-    def _default_targets(self):
+    def _default_config(self):
         with open(DEFAULT_CONFIG_PATH) as f:
-            cfg = yaml.safe_load(f)
+            return yaml.safe_load(f)
+
+    def _default_targets(self):
+        cfg = self._default_config()
         return {**cfg["low_level_targets"], **cfg["high_level_targets"]}
+
+    def test_fields_are_not_prefixed_by_default(self):
+        self.assertEqual("", self._default_config()["field_prefix"])
+        self.assertEqual("", self.config[PLUGIN_NAME]["field_prefix"].get())
+        self.assertIn("bpm", self._default_targets())
+        for fld in self._default_targets():
+            self.assertFalse(fld.startswith(FIELD_PREFIX), msg="Hardcoded prefix: {}".format(fld))
+
+    def test_item_types_are_prefixed(self):
+        self.config[PLUGIN_NAME]["field_prefix"] = FIELD_PREFIX
+        plugin = plugins.find_plugins()[0]
+
+        item_types = plugin._build_item_types()
+
+        self.assertEqual({FIELD_PREFIX + fld for fld in self._default_targets()}, set(item_types))
+        self.assertEqual(types.INTEGER, item_types["xtractor_bpm"])
+        self.assertEqual(types.STRING, item_types["xtractor_gender"])
+        self.assertIsInstance(item_types["xtractor_danceability"], types.Float)
+        for fld in item_types:
+            self.assertNotIn(fld, Item._fields)
+
+    def test_additional_fields_are_optional(self):
+        cfg = self._default_config()
+        additional = {
+            "low_level_targets": ["key_edma", "key_edma_scale"],
+            "high_level_targets": ["tonal_atonal", "timbre", "genre_rosamerica_probability",
+                                   "genre_electronic", "genre_electronic_probability"],
+        }
+
+        for map_key, fields in additional.items():
+            for fld in fields:
+                self.assertIn(fld, cfg[map_key])
+                self.assertFalse(cfg[map_key][fld].get("required", False), msg=fld)
+
+    def test_empty_prefix_in_user_configuration(self):
+        self.config[PLUGIN_NAME]["field_prefix"] = None
+        plugin = plugins.find_plugins()[0]
+
+        self.assertEqual(set(self._default_targets()), set(plugin._build_item_types()))
+        self.assertEqual("", XtractorCommand(self.config[PLUGIN_NAME]).cfg_field_prefix)
+
+    def test_bpm_is_forced_by_default(self):
+        self.assertEqual("force", self._default_config()["prefix_bpm_behavior"])
+        self.assertEqual(2, self._default_config()["prefix_bpm_max_difference"])
+
+    def test_unknown_bpm_behavior_is_rejected(self):
+        self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = "sometimes"
+
+        with self.assertRaises(ConfigError):
+            XtractorCommand(self.config[PLUGIN_NAME])
 
     def test_item_types_are_built_from_the_default_configuration(self):
         plugin = plugins.find_plugins()[0]
@@ -126,12 +188,28 @@ class XtractionTest(TestHelper, Assertions):
                 pass
             self.lib.add(Item(path=path.encode(), title="track{}".format(i)))
 
+    def _use_prefix(self, bpm_behavior=None):
+        self.config[PLUGIN_NAME]["field_prefix"] = FIELD_PREFIX
+        if bpm_behavior:
+            self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = bpm_behavior
+
+        # beets reads the configuration before it loads the plugin, the tests set the prefix afterwards
+        plugin = plugins.find_plugins()[0]
+        plugin.item_types = plugin._build_item_types()
+        cached_classproperty.cache.clear()
+        self.addCleanup(cached_classproperty.cache.clear)
+
     def _create_command(self, threads=1):
         cmd = XtractorCommand(self.config[PLUGIN_NAME])
         cmd.lib = self.lib
         cmd.query = []
         cmd.cfg_threads = threads
         return cmd
+
+    def _set_bpm(self, bpm):
+        item = self.lib.items().get()
+        item.bpm = bpm
+        item.store()
 
     def _stored_paths(self):
         with sqlite3.connect(os.fsdecode(self.lib.path)) as conn:
@@ -234,6 +312,134 @@ class XtractionTest(TestHelper, Assertions):
             self.assertEqual("male", item.get("gender"))
             self.assertEqual("Cluster3", item.get("mood_mirex"))
             self.assertEqual(0.4, item.get("mood_mirex_cluster_3"))
+            self.assertIsNone(item.get("xtractor_bpm"))
+            self.assertEqual("C#", item.get("key_edma"))
+            self.assertEqual("minor", item.get("key_edma_scale"))
+            self.assertEqual("tonal", item.get("tonal_atonal"))
+            self.assertEqual("dark", item.get("timbre"))
+            self.assertEqual("roc", item.get("genre_rosamerica"))
+            self.assertEqual(0.6, item.get("genre_rosamerica_probability"))
+            # Values missing in the output of the extractor are skipped
+            self.assertIsNone(item.get("genre_electronic"))
+            self.assertIsNone(item.get("genre_electronic_probability"))
 
         # The paths must stay relative to the library directory
         self.assertEqual(["album/track0.flac", "album/track1.flac", "album/track2.flac"], self._stored_paths())
+
+    def test_threaded_analysis_stores_prefixed_fields(self):
+        self._use_prefix(bpm_behavior="never")
+        self._add_items(3)
+
+        self._create_command(threads=3).xtract()
+
+        items = list(self.lib.items())
+        self.assertEqual(3, len(items))
+        for item in items:
+            self.assertEqual(128, item.get("xtractor_bpm"))
+            self.assertEqual(512, item.get("xtractor_beats_count"))
+            self.assertEqual(1.25, item.get("xtractor_danceability"))
+            self.assertEqual("male", item.get("xtractor_gender"))
+            self.assertEqual(0.4, item.get("xtractor_mood_mirex_cluster_3"))
+            # The fields owned by beets and other plugins are left alone
+            self.assertEqual(0, item.get("bpm"))
+            self.assertIsNone(item.get("danceability"))
+            self.assertIsNone(item.get("gender"))
+
+    def test_analysed_items_are_not_selected_again(self):
+        self._add_items(2)
+        cmd = self._create_command(threads=2)
+
+        cmd.find_items_to_analyse()
+        self.assertEqual(2, len(cmd.items_to_analyse))
+
+        cmd.xtract()
+
+        cmd.find_items_to_analyse()
+        self.assertEqual(0, len(cmd.items_to_analyse))
+
+        cmd.cfg_force = True
+        cmd.find_items_to_analyse()
+        self.assertEqual(2, len(cmd.items_to_analyse))
+
+    def test_prefixed_fields_decide_what_is_analysed(self):
+        self._add_items(2)
+        self._create_command().xtract()
+
+        # Values stored without the prefix do not count for a prefixed setup
+        self._use_prefix()
+        cmd = self._create_command(threads=2)
+        cmd.find_items_to_analyse()
+        self.assertEqual(2, len(cmd.items_to_analyse))
+
+        cmd.xtract()
+
+        cmd.find_items_to_analyse()
+        self.assertEqual(0, len(cmd.items_to_analyse))
+
+    def test_bpm_behavior_with_prefix(self):
+        # The fake extractor reports 128: 126 is within the allowed difference of 2, 125 and 90 are not
+        expectations = {
+            "force": {0: 128, 126: 128, 125: 128, 90: 128},
+            "if_empty": {0: 128, 126: 126, 125: 125, 90: 90},
+            "if_similar": {0: 128, 126: 128, 125: 125, 90: 90},
+            "never": {0: 0, 126: 126, 125: 125, 90: 90},
+        }
+        self.assertEqual(set(BPM_BEHAVIORS), set(expectations))
+        self._add_items(1)
+
+        for behavior, cases in expectations.items():
+            for existing_bpm, expected_bpm in cases.items():
+                with self.subTest(behavior=behavior, existing_bpm=existing_bpm):
+                    self._use_prefix(bpm_behavior=behavior)
+                    self._set_bpm(existing_bpm)
+                    cmd = self._create_command()
+                    cmd.cfg_force = True
+
+                    cmd.xtract()
+
+                    item = self.lib.items().get()
+                    self.assertEqual(expected_bpm, item.get("bpm"))
+                    self.assertEqual(128, item.get("xtractor_bpm"))
+
+    def test_bpm_max_difference_is_configurable(self):
+        self._use_prefix(bpm_behavior="if_similar")
+        self.config[PLUGIN_NAME]["prefix_bpm_max_difference"] = 40
+        self._add_items(1)
+        self._set_bpm(90)
+
+        self._create_command().xtract()
+
+        self.assertEqual(128, self.lib.items().get().get("bpm"))
+
+    def test_bpm_behavior_is_ignored_without_prefix(self):
+        self._add_items(1)
+
+        for behavior in BPM_BEHAVIORS:
+            with self.subTest(behavior=behavior):
+                self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = behavior
+                self._set_bpm(90)
+                cmd = self._create_command()
+                cmd.cfg_force = True
+
+                cmd.xtract()
+
+                self.assertEqual(128, self.lib.items().get().get("bpm"))
+
+    def test_bpm_reaches_the_media_file_only_when_updated(self):
+        self._add_items(1)
+        self._set_bpm(90)
+        written = []
+
+        def try_write(item, path=None, **kwargs):
+            written.append(item.bpm)
+            return True
+
+        for behavior, expected_bpm in [("never", 90), ("force", 128)]:
+            self._use_prefix(bpm_behavior=behavior)
+            cmd = self._create_command()
+            cmd.cfg_force = True
+            cmd.cfg_write = True
+            with patch.object(Item, "try_write", try_write):
+                cmd.xtract()
+
+            self.assertEqual(expected_bpm, written[-1])
