@@ -165,7 +165,7 @@ class XtractorCommand(Subcommand):
                 for fld in target_map:
                     if target_map[fld]["required"].exists() and target_map[fld]["required"].get(bool):
                         fast = fld in Item._fields
-                        query_item = dbcore.query.MatchQuery(fld, None, fast=fast)
+                        query_item = dbcore.query.NoneQuery(fld, fast=fast)
                         subqueries.append(query_item)
 
             unprocessed_items_query = dbcore.query.OrQuery(subqueries)
@@ -236,9 +236,9 @@ class XtractorCommand(Subcommand):
 
         # Update and Store Item
         if not self.cfg_dry_run:
-            for attr in audiodata.keys():
-                if audiodata.get(attr):
-                    setattr(item, attr, audiodata.get(attr))
+            for attr, value in audiodata.items():
+                if value is not None:
+                    setattr(item, attr, value)
             item.store()
 
         return True
