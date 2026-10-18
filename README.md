@@ -87,7 +87,6 @@ First of all, you will need adjust all paths. Put the path of the extractor bina
 substitute the location of the SVM models with your local path under the `svm_models` section. Finally, set
 the `output_path` to indicate where the extracted data files will be stored. If you do not set this, a temporary path
 will be used.
-will be used.
 
 **Note on shell tilde expansion**: Please note that you cannot use shell expansion on the `svm_models` (i.e.: do not use `~` for your home folder).
 The entire section of `extractor_profile` is passed as-is to the essentia extractor binary and it will not do tilde expansion on your paths.
@@ -108,39 +107,70 @@ The `threads` option sets the number of concurrent executions. By default this i
 If you remove this option or if you set it to 0 the number of CPU cores present on your machine will be used.
 The extraction is quite a CPU intensive process so there might be cases when you want to limit it to just 1.
 
-The `write` option instructs the plugin to write the extracted attributes to the media file right away. Note that only `bpm` is actually written to the media file, all the other attributes are flex attributes and are only stored in the database.
+The `write` option instructs the plugin to write the extracted attributes to the media file right away. Note that only
+the fields that beets maps to tags, like `bpm` (see [canonical fields](#canonical-fields)), are actually written to the
+media file. All the other attributes are flex attributes and are only stored in the database.
 
 The `dry-run` option shows what would be done without actually doing it.
 
+**NOTE**: Please note that the `auto` option is not yet implemented. For now you will have to call the xtractor plugin manually.
+
 ### Coexistence with other plugins
 
-Some of the attribute names are also used by other plugins. As an example,
-[beets-vibenet](https://github.com/jaeheonshim/vibenet) defines `danceability` with a different type, which makes beets
-fail when both plugins are loaded. Set `field_prefix` to store all attributes of this plugin under their own names:
+Some of the attribute names may collide with other plugins (for example,
+[beets-vibenet](https://github.com/jaeheonshim/vibenet) defines `danceability` with a different type) which causes a
+failure when both are loaded. To avoid this, you can define a global prefix for all of xtractor's attributes:
 
 ```yaml
 xtractor:
     field_prefix: xtractor_
-    prefix_bpm_behavior: if_empty
 ```
 
-With this configuration the attributes become `xtractor_bpm`, `xtractor_danceability` and so on. The prefix is empty by
-default. Attributes stored before you set (or changed) the prefix keep their old names and are not picked up any more,
-so your items will be analysed again.
+This makes xtractor write to `xtractor_bpm` instead of `bpm`, to `xtractor_danceability` instead of `danceability`, and
+so on. The prefix is empty by default.
 
-With a prefix, the extracted tempo always goes to the prefixed attribute (`xtractor_bpm`). The `prefix_bpm_behavior`
-option decides what additionally happens to the `bpm` field of beets, which is the one that the `write` option puts into
-the media file:
+**NOTE**: Altering the prefix after you analyzed your library will not update the database and has consequences:
 
-- `force` (default): always overwrite `bpm`.
-- `if_empty`: set `bpm` only if the item has none yet.
-- `if_similar`: like `if_empty`, but also overwrite a `bpm` that differs from the extracted value by no more than
-  `prefix_bpm_max_difference` (default: 2). A clearly different value, like one you entered yourself, is kept.
-- `never`: never touch `bpm`.
+- `beet xtractor` see all items as not analyzed and will analyze all your items again.
+- The attributes stored under the old names are not removed and remain as stale data.
+- Queries with the old names (e.g. [smart playlists](https://beets.readthedocs.io/en/stable/plugins/smartplaylist.html))
+  will no longer work and need to be updated with the prefix (`danceable:0.8..` has to become `xtractor_danceable:0.8..`).
 
-Without a prefix these options have no effect: the tempo is stored straight in `bpm`.
+### Canonical fields
 
-**NOTE**: Please note that the `auto` option is not yet implemented. For now you will have to call the xtractor plugin manually.
+When a `field_prefix` is set, xtractor no longer updates generic attributes like `bpm` (which might be desired).
+Therefore you can define a `canonical` section within the targets configuration; xtractor will then update the corresponding
+canonical field according to the defined `update_policy`:
+
+```yaml
+xtractor:
+    field_prefix: xtractor_
+    low_level_targets:
+        bpm:
+            path: "rhythm.bpm"
+            type: integer
+            required: yes
+            canonical:
+                field: bpm
+                update_policy: if_similar
+                max_difference: 4%
+```
+
+`canonical` allows these options:
+- `field`: the canonical field (defaults to the name of the target without prefix)
+- `update_policy`:
+  - `force`: always overwrite the canonical field (default).
+  - `if_empty`: set the canonical field only if it is empty.
+  - `if_similar`: like `if_empty`, but also overwrite a value that differs from the extracted one by no more than
+    `max_difference`. A clearly different value, like one you entered yourself, is kept (only for numeric targets).
+  - `never`: never touch the canonical field.
+- `max_difference`: an absolute number (`2`) or a percentage of the extracted value (`4%`) (only for numeric targets).
+
+In the above example, the analyzed tempo gets written to `xtractor_bpm` and also replaces `bpm` if that one is empty or
+within 4% of the analyzed tempo.
+
+**NOTE**: The `bpm` target comes with a default `update_policy: force` and `max_difference: 2`, so without further
+configuration `bpm` is always updated.
 
 ## Usage
 
@@ -166,7 +196,7 @@ The following command line options are available:
 
 **--dry-run [-d]**: Only show what would be done - displays the extracted values but does not store them in the library.
 
-**--write [-w]**: Write the values (bpm only) to the media files.
+**--write [-w]**: Write the values (only those with a tag, like `bpm`) to the media files.
 
 **--threads=THREADS [-t THREADS]**: The number of concurrently running executions.
 
