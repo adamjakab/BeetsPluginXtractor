@@ -49,6 +49,8 @@ class XtractorCommand(Subcommand):
         self.cfg_version = False
         self.cfg_count_only = False
         self.cfg_quiet = cfg.get("quiet")
+        self.cfg_field_prefix = helper.get_field_prefix(self.config)
+        self.cfg_canonical_targets = helper.get_canonical_targets(self.config)
 
         self.parser = OptionParser(
             usage='beet {plg} [options] [QUERY...]'.format(
@@ -66,7 +68,7 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-w', '--write',
             action='store_true', dest='write', default=self.cfg_write,
-            help=u'[default: {}] write the extracted values (bpm) to the media '
+            help=u'[default: {}] write the extracted values to the media '
                  u'files'.format(
                 self.cfg_write)
         )
@@ -82,7 +84,7 @@ class XtractorCommand(Subcommand):
         self.parser.add_option(
             '-f', '--force',
             action='store_true', dest='force', default=self.cfg_force,
-            help=u'[default: {}] force analysis of items with non-zero bpm values'.format(self.cfg_force)
+            help=u'[default: {}] force analysis of already analysed items'.format(self.cfg_force)
         )
 
         self.parser.add_option(
@@ -164,8 +166,9 @@ class XtractorCommand(Subcommand):
                 target_map = self.config[map_key]
                 for fld in target_map:
                     if target_map[fld]["required"].exists() and target_map[fld]["required"].get(bool):
-                        fast = fld in Item._fields
-                        query_item = dbcore.query.NoneQuery(fld, fast=fast)
+                        field_name = self.cfg_field_prefix + fld
+                        fast = field_name in Item._fields
+                        query_item = dbcore.query.NoneQuery(field_name, fast=fast)
                         subqueries.append(query_item)
 
             unprocessed_items_query = dbcore.query.OrQuery(subqueries)
@@ -238,10 +241,37 @@ class XtractorCommand(Subcommand):
         if not self.cfg_dry_run:
             for attr, value in audiodata.items():
                 if value is not None:
-                    setattr(item, attr, value)
+                    field_name = self.cfg_field_prefix + attr
+                    setattr(item, field_name, value)
+                    canonical = self.cfg_canonical_targets.get(attr)
+                    if canonical and canonical["field"] != field_name \
+                            and self._should_update_canonical(canonical, item.get(canonical["field"]), value):
+                        setattr(item, canonical["field"], value)
             item.store()
 
         return True
+
+    @staticmethod
+    def _should_update_canonical(canonical, current_value, extracted_value):
+        """decides if the canonical field of a target gets the extracted value
+        in addition to the (prefixed) field of the target (see `canonical`)
+        """
+        update_policy = canonical["update_policy"]
+        if update_policy == "force":
+            return True
+        if update_policy == "never":
+            return False
+        if not current_value:
+            return True
+        if update_policy == "if_similar":
+            try:
+                # Flexible attributes of unknown type come back as strings
+                current_value = float(current_value)
+            except ValueError:
+                return False
+            return abs(current_value - extracted_value) <= helper.get_max_difference(canonical, extracted_value)
+
+        return False
 
     def _run_essentia_extractor(self, extractor_path, input_path, output_path, profile_path):
         if os.path.isfile(output_path):

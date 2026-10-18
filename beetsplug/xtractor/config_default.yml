@@ -6,11 +6,23 @@ force: no
 quiet: no
 keep_output: no
 keep_profiles: no
+# Prepended to the name of every field below (e.g. "xtractor_")
+field_prefix: ""
+# A target with a `canonical` block also stores its value in a second field:
+#   field:          the second field (default: the name of the target, without the prefix)
+#   update_policy:  force:      always overwrite it (default)
+#                   if_empty:   only set it when it is empty
+#                   if_similar: like if_empty, but also overwrite a value that differs by at most max_difference
+#                   never:      leave it alone
+#   max_difference: only for numeric targets, either absolute (2) or relative to the extracted value (4%)
 low_level_targets:
     bpm:
         path: "rhythm.bpm"
         type: integer
         required: yes
+        canonical:
+            update_policy: force
+            max_difference: 2
     danceability:
         path: "rhythm.danceability"
         type: float
