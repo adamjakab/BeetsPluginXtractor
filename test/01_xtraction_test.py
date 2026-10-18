@@ -13,13 +13,14 @@ from beets import context, plugins
 from beets.dbcore import types
 from beets.library import Item
 from beets.util import cached_classproperty
+from beetsplug.xtractor import helper
 from beetsplug.xtractor.command import XtractorCommand
 from mediafile import MediaFile
 
 from test.helper import TestHelper, Assertions, PLUGIN_NAME
 
 FIELD_PREFIX = "xtractor_"
-BPM_BEHAVIORS = ["force", "if_empty", "if_similar", "never"]
+UPDATE_POLICIES = ["force", "if_empty", "if_similar", "never"]
 
 DEFAULT_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "beetsplug", "xtractor", "config_default.yml")
@@ -85,15 +86,45 @@ class ItemTypesTest(TestHelper, Assertions):
         self.assertEqual(set(self._default_targets()), set(plugin._build_item_types()))
         self.assertEqual("", XtractorCommand(self.config[PLUGIN_NAME]).cfg_field_prefix)
 
-    def test_bpm_is_forced_by_default(self):
-        self.assertEqual("force", self._default_config()["prefix_bpm_behavior"])
-        self.assertEqual(2, self._default_config()["prefix_bpm_max_difference"])
+    def test_bpm_is_forced_into_its_canonical_field_by_default(self):
+        canonical = self._default_config()["low_level_targets"]["bpm"]["canonical"]
+        self.assertEqual({"update_policy": "force", "max_difference": 2}, canonical)
 
-    def test_unknown_bpm_behavior_is_rejected(self):
-        self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = "sometimes"
+        self.assertEqual({"bpm": {"field": "bpm", "update_policy": "force", "max_difference": 2}},
+                         helper.get_canonical_targets(self.config[PLUGIN_NAME]))
 
-        with self.assertRaises(ConfigError):
-            XtractorCommand(self.config[PLUGIN_NAME])
+    def test_canonical_defaults(self):
+        self.config[PLUGIN_NAME]["high_level_targets"]["mood_happy"]["canonical"] = {}
+        self.config[PLUGIN_NAME]["high_level_targets"]["gender"]["canonical"] = {"field": "sex"}
+
+        canonical_targets = helper.get_canonical_targets(self.config[PLUGIN_NAME])
+
+        self.assertEqual({"field": "mood_happy", "update_policy": "force", "max_difference": 0},
+                         canonical_targets["mood_happy"])
+        self.assertEqual({"field": "sex", "update_policy": "force", "max_difference": None},
+                         canonical_targets["gender"])
+
+    def test_invalid_canonical_configurations_are_rejected(self):
+        invalid = {
+            "unknown policy": ("low_level_targets", "bpm", {"path": "rhythm.bpm", "type": "integer"},
+                               {"update_policy": "sometimes"}),
+            "untyped target": ("low_level_targets", "my_list", {"path": "rhythm.beats_position"},
+                               {"update_policy": "force"}),
+            "list target": ("low_level_targets", "my_list", {"path": "rhythm.beats_position", "type": "list"},
+                            {"update_policy": "force"}),
+            "similar string": ("high_level_targets", "gender", {"path": "highlevel.gender.value", "type": "string"},
+                               {"update_policy": "if_similar"}),
+            "string difference": ("high_level_targets", "gender",
+                                  {"path": "highlevel.gender.value", "type": "string"},
+                                  {"update_policy": "if_empty", "max_difference": 1}),
+        }
+        for case, (map_key, fld, target, canonical) in invalid.items():
+            with self.subTest(case=case):
+                self.reset_beets(config_file=b"empty.yml")
+                self.config[PLUGIN_NAME][map_key][fld] = {**target, "canonical": canonical}
+
+                with self.assertRaises(ConfigError):
+                    XtractorCommand(self.config[PLUGIN_NAME])
 
     def test_item_types_are_built_from_the_default_configuration(self):
         plugin = plugins.find_plugins()[0]
@@ -172,10 +203,10 @@ class XtractionTest(TestHelper, Assertions):
                 pass
             self.lib.add(Item(path=path.encode(), title="track{}".format(i)))
 
-    def _use_prefix(self, bpm_behavior=None):
+    def _use_prefix(self, bpm_policy=None):
         self.config[PLUGIN_NAME]["field_prefix"] = FIELD_PREFIX
-        if bpm_behavior:
-            self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = bpm_behavior
+        if bpm_policy:
+            self._set_bpm_canonical(update_policy=bpm_policy)
 
         # beets reads the configuration before it loads the plugin, the tests set the prefix afterwards
         plugin = plugins.find_plugins()[0]
@@ -189,6 +220,10 @@ class XtractionTest(TestHelper, Assertions):
         cmd.query = []
         cmd.cfg_threads = threads
         return cmd
+
+    def _set_bpm_canonical(self, **canonical):
+        for key, value in canonical.items():
+            self.config[PLUGIN_NAME]["low_level_targets"]["bpm"]["canonical"][key] = value
 
     def _set_bpm(self, bpm):
         item = self.lib.items().get()
@@ -302,7 +337,7 @@ class XtractionTest(TestHelper, Assertions):
         self.assertEqual(["album/track0.flac", "album/track1.flac", "album/track2.flac"], self._stored_paths())
 
     def test_threaded_analysis_stores_prefixed_fields(self):
-        self._use_prefix(bpm_behavior="never")
+        self._use_prefix(bpm_policy="never")
         self._add_items(3)
 
         self._create_command(threads=3).xtract()
@@ -351,7 +386,7 @@ class XtractionTest(TestHelper, Assertions):
         cmd.find_items_to_analyse()
         self.assertEqual(0, len(cmd.items_to_analyse))
 
-    def test_bpm_behavior_with_prefix(self):
+    def test_bpm_update_policy_with_prefix(self):
         # The fake extractor reports 128: 126 is within the allowed difference of 2, 125 and 90 are not
         expectations = {
             "force": {0: 128, 126: 128, 125: 128, 90: 128},
@@ -359,13 +394,13 @@ class XtractionTest(TestHelper, Assertions):
             "if_similar": {0: 128, 126: 128, 125: 125, 90: 90},
             "never": {0: 0, 126: 126, 125: 125, 90: 90},
         }
-        self.assertEqual(set(BPM_BEHAVIORS), set(expectations))
+        self.assertEqual(set(UPDATE_POLICIES), set(expectations))
         self._add_items(1)
 
-        for behavior, cases in expectations.items():
+        for policy, cases in expectations.items():
             for existing_bpm, expected_bpm in cases.items():
-                with self.subTest(behavior=behavior, existing_bpm=existing_bpm):
-                    self._use_prefix(bpm_behavior=behavior)
+                with self.subTest(policy=policy, existing_bpm=existing_bpm):
+                    self._use_prefix(bpm_policy=policy)
                     self._set_bpm(existing_bpm)
                     cmd = self._create_command()
                     cmd.cfg_force = True
@@ -377,8 +412,8 @@ class XtractionTest(TestHelper, Assertions):
                     self.assertEqual(128, item.get("xtractor_bpm"))
 
     def test_bpm_max_difference_is_configurable(self):
-        self._use_prefix(bpm_behavior="if_similar")
-        self.config[PLUGIN_NAME]["prefix_bpm_max_difference"] = 40
+        self._use_prefix(bpm_policy="if_similar")
+        self._set_bpm_canonical(max_difference=40)
         self._add_items(1)
         self._set_bpm(90)
 
@@ -386,12 +421,12 @@ class XtractionTest(TestHelper, Assertions):
 
         self.assertEqual(128, self.lib.items().get().get("bpm"))
 
-    def test_bpm_behavior_is_ignored_without_prefix(self):
+    def test_update_policy_is_ignored_when_the_canonical_field_is_the_target(self):
         self._add_items(1)
 
-        for behavior in BPM_BEHAVIORS:
-            with self.subTest(behavior=behavior):
-                self.config[PLUGIN_NAME]["prefix_bpm_behavior"] = behavior
+        for policy in UPDATE_POLICIES:
+            with self.subTest(policy=policy):
+                self._set_bpm_canonical(update_policy=policy)
                 self._set_bpm(90)
                 cmd = self._create_command()
                 cmd.cfg_force = True
@@ -399,6 +434,31 @@ class XtractionTest(TestHelper, Assertions):
                 cmd.xtract()
 
                 self.assertEqual(128, self.lib.items().get().get("bpm"))
+
+    def test_string_target_with_a_custom_canonical_field(self):
+        self.config[PLUGIN_NAME]["high_level_targets"]["genre_rosamerica"]["canonical"] = {
+            "field": "genre", "update_policy": "if_empty"}
+        self._add_items(2)
+        items = list(self.lib.items())
+        items[0].genre = "Jazz"
+        items[0].store()
+
+        self._create_command().xtract()
+
+        genres = {item.title: (item.get("genre"), item.get("genre_rosamerica")) for item in self.lib.items()}
+        self.assertEqual({"track0": ("Jazz", "roc"), "track1": ("roc", "roc")}, genres)
+
+    def test_similar_values_in_flexible_attributes(self):
+        self._set_bpm_canonical(field="tempo", update_policy="if_similar")
+        self._add_items(3)
+        for item, tempo in zip(self.lib.items(), ["127", "fast", "100"]):
+            item.tempo = tempo
+            item.store()
+
+        self._create_command().xtract()
+
+        tempos = {item.title: str(item.get("tempo")) for item in self.lib.items()}
+        self.assertEqual({"track0": "128", "track1": "fast", "track2": "100"}, tempos)
 
     def test_bpm_reaches_the_media_file_only_when_updated(self):
         self._add_items(1)
@@ -409,8 +469,8 @@ class XtractionTest(TestHelper, Assertions):
             written.append(item.bpm)
             return True
 
-        for behavior, expected_bpm in [("never", 90), ("force", 128)]:
-            self._use_prefix(bpm_behavior=behavior)
+        for policy, expected_bpm in [("never", 90), ("force", 128)]:
+            self._use_prefix(bpm_policy=policy)
             cmd = self._create_command()
             cmd.cfg_force = True
             cmd.cfg_write = True

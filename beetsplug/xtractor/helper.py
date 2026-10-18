@@ -6,7 +6,7 @@ import json
 import logging
 import os
 
-from confuse import Subview
+from confuse import ConfigError, Subview
 
 # Get values as: plg_ns['__PLUGIN_NAME__']
 plg_ns = {}
@@ -18,8 +18,49 @@ __logger__ = logging.getLogger(
     'beets.{plg}'.format(plg=plg_ns['__PLUGIN_NAME__']))
 
 
+CANONICAL_UPDATE_POLICIES = ["force", "if_empty", "if_similar", "never"]
+CANONICAL_TYPES = ["integer", "float", "string"]
+NUMERIC_TYPES = ["integer", "float"]
+
+
 def get_field_prefix(config: Subview):
     return config["field_prefix"].get() or ""
+
+
+def get_canonical_targets(config: Subview):
+    """collects the `canonical` settings of the targets in
+    `low_level_targets` / `high_level_targets`, keyed by the target name
+    """
+    canonical_targets = {}
+    for map_key in ["low_level_targets", "high_level_targets"]:
+        target_map = config[map_key]
+        for fld in target_map:
+            canonical = target_map[fld]["canonical"]
+            if not canonical.exists():
+                continue
+
+            value_type = target_map[fld]["type"].get()
+            if value_type not in CANONICAL_TYPES:
+                raise ConfigError("{}.{}.canonical: only available for the types {}".format(
+                    map_key, fld, ", ".join(CANONICAL_TYPES)))
+
+            update_policy = canonical["update_policy"].as_choice(CANONICAL_UPDATE_POLICIES) \
+                if canonical["update_policy"].exists() else "force"
+            max_difference = None
+            if value_type in NUMERIC_TYPES:
+                max_difference = canonical["max_difference"].as_number() \
+                    if canonical["max_difference"].exists() else 0
+            elif update_policy == "if_similar" or canonical["max_difference"].exists():
+                raise ConfigError("{}.{}.canonical: if_similar and max_difference need a numeric type".format(
+                    map_key, fld))
+
+            canonical_targets[fld] = {
+                "field": canonical["field"].as_str() if canonical["field"].exists() else fld,
+                "update_policy": update_policy,
+                "max_difference": max_difference,
+            }
+
+    return canonical_targets
 
 
 def extract_from_output(output_path, target_map: Subview):

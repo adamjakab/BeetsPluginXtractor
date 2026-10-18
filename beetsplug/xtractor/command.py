@@ -21,10 +21,6 @@ from beetsplug.xtractor import helper
 from confuse import Subview
 
 
-BPM_FIELD = "bpm"
-BPM_BEHAVIORS = ["force", "if_empty", "if_similar", "never"]
-
-
 class XtractorCommand(Subcommand):
     config: Subview = None
 
@@ -54,8 +50,7 @@ class XtractorCommand(Subcommand):
         self.cfg_count_only = False
         self.cfg_quiet = cfg.get("quiet")
         self.cfg_field_prefix = helper.get_field_prefix(self.config)
-        self.cfg_prefix_bpm_behavior = self.config["prefix_bpm_behavior"].as_choice(BPM_BEHAVIORS)
-        self.cfg_prefix_bpm_max_difference = self.config["prefix_bpm_max_difference"].as_number()
+        self.cfg_canonical_targets = helper.get_canonical_targets(self.config)
 
         self.parser = OptionParser(
             usage='beet {plg} [options] [QUERY...]'.format(
@@ -246,29 +241,35 @@ class XtractorCommand(Subcommand):
         if not self.cfg_dry_run:
             for attr, value in audiodata.items():
                 if value is not None:
-                    setattr(item, self.cfg_field_prefix + attr, value)
-                    if attr == BPM_FIELD and self._should_update_bpm(item.get(BPM_FIELD), value):
-                        setattr(item, BPM_FIELD, value)
+                    field_name = self.cfg_field_prefix + attr
+                    setattr(item, field_name, value)
+                    canonical = self.cfg_canonical_targets.get(attr)
+                    if canonical and canonical["field"] != field_name \
+                            and self._should_update_canonical(canonical, item.get(canonical["field"]), value):
+                        setattr(item, canonical["field"], value)
             item.store()
 
         return True
 
-    def _should_update_bpm(self, current_bpm, extracted_bpm):
-        """decides if the `bpm` field of beets gets the extracted value in
-        addition to the prefixed field (see `prefix_bpm_behavior`)
+    @staticmethod
+    def _should_update_canonical(canonical, current_value, extracted_value):
+        """decides if the canonical field of a target gets the extracted value
+        in addition to the (prefixed) field of the target (see `canonical`)
         """
-        if not self.cfg_field_prefix:
-            # The value has already been stored in the `bpm` field
-            return False
-
-        if self.cfg_prefix_bpm_behavior == "force":
+        update_policy = canonical["update_policy"]
+        if update_policy == "force":
             return True
-        if self.cfg_prefix_bpm_behavior == "never":
+        if update_policy == "never":
             return False
-        if not current_bpm:
+        if not current_value:
             return True
-        if self.cfg_prefix_bpm_behavior == "if_similar":
-            return abs(current_bpm - extracted_bpm) <= self.cfg_prefix_bpm_max_difference
+        if update_policy == "if_similar":
+            try:
+                # Flexible attributes of unknown type come back as strings
+                current_value = float(current_value)
+            except ValueError:
+                return False
+            return abs(current_value - extracted_value) <= canonical["max_difference"]
 
         return False
 
