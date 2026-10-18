@@ -269,7 +269,7 @@ class XtractorCommand(Subcommand):
                 current_value = float(current_value)
             except ValueError:
                 return False
-            return abs(current_value - extracted_value) <= canonical["max_difference"]
+            return abs(current_value - extracted_value) <= helper.get_max_difference(canonical, extracted_value)
 
         return False
 

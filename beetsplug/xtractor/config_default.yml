@@ -14,7 +14,7 @@ field_prefix: ""
 #                   if_empty:   only set it when it is empty
 #                   if_similar: like if_empty, but also overwrite a value that differs by at most max_difference
 #                   never:      leave it alone
-#   max_difference: only for numeric targets
+#   max_difference: only for numeric targets, either absolute (2) or relative to the extracted value (4%)
 low_level_targets:
     bpm:
         path: "rhythm.bpm"

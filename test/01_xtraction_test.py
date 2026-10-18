@@ -90,7 +90,7 @@ class ItemTypesTest(TestHelper, Assertions):
         canonical = self._default_config()["low_level_targets"]["bpm"]["canonical"]
         self.assertEqual({"update_policy": "force", "max_difference": 2}, canonical)
 
-        self.assertEqual({"bpm": {"field": "bpm", "update_policy": "force", "max_difference": 2}},
+        self.assertEqual({"bpm": {"field": "bpm", "update_policy": "force", "max_difference": (2, False)}},
                          helper.get_canonical_targets(self.config[PLUGIN_NAME]))
 
     def test_canonical_defaults(self):
@@ -99,10 +99,21 @@ class ItemTypesTest(TestHelper, Assertions):
 
         canonical_targets = helper.get_canonical_targets(self.config[PLUGIN_NAME])
 
-        self.assertEqual({"field": "mood_happy", "update_policy": "force", "max_difference": 0},
+        self.assertEqual({"field": "mood_happy", "update_policy": "force", "max_difference": (0, False)},
                          canonical_targets["mood_happy"])
         self.assertEqual({"field": "sex", "update_policy": "force", "max_difference": None},
                          canonical_targets["gender"])
+
+    def test_max_difference_is_absolute_or_relative(self):
+        cases = {2: (2, False), 0.5: (0.5, False), "4%": (0.04, True), " 2.5% ": (0.025, True), "0%": (0, True)}
+        for max_difference, expected in cases.items():
+            with self.subTest(max_difference=max_difference):
+                self.config[PLUGIN_NAME]["low_level_targets"]["bpm"]["canonical"]["max_difference"] = max_difference
+
+                parsed = helper.get_canonical_targets(self.config[PLUGIN_NAME])["bpm"]["max_difference"]
+
+                self.assertAlmostEqual(expected[0], parsed[0])
+                self.assertEqual(expected[1], parsed[1])
 
     def test_invalid_canonical_configurations_are_rejected(self):
         invalid = {
@@ -118,6 +129,10 @@ class ItemTypesTest(TestHelper, Assertions):
                                   {"path": "highlevel.gender.value", "type": "string"},
                                   {"update_policy": "if_empty", "max_difference": 1}),
         }
+        for max_difference in ["four", "4 %%", "%", "-4%", -2, True, [4]]:
+            invalid["max_difference {!r}".format(max_difference)] = (
+                "low_level_targets", "bpm", {"path": "rhythm.bpm", "type": "integer"},
+                {"update_policy": "if_similar", "max_difference": max_difference})
         for case, (map_key, fld, target, canonical) in invalid.items():
             with self.subTest(case=case):
                 self.reset_beets(config_file=b"empty.yml")
@@ -420,6 +435,23 @@ class XtractionTest(TestHelper, Assertions):
         self._create_command().xtract()
 
         self.assertEqual(128, self.lib.items().get().get("bpm"))
+
+    def test_relative_bpm_max_difference(self):
+        # 3% of the extracted 128 allow a difference of 3.84
+        expectations = {125: 128, 131: 128, 124: 124, 132: 132}
+        self._use_prefix(bpm_policy="if_similar")
+        self._set_bpm_canonical(max_difference="3%")
+        self._add_items(1)
+
+        for existing_bpm, expected_bpm in expectations.items():
+            with self.subTest(existing_bpm=existing_bpm):
+                self._set_bpm(existing_bpm)
+                cmd = self._create_command()
+                cmd.cfg_force = True
+
+                cmd.xtract()
+
+                self.assertEqual(expected_bpm, self.lib.items().get().get("bpm"))
 
     def test_update_policy_is_ignored_when_the_canonical_field_is_the_target(self):
         self._add_items(1)
